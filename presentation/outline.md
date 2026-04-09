@@ -47,12 +47,50 @@ Brief walkthrough of the guardrails we invented:
 - Compliance checks
 - Documentation
 - Monitoring and Alerting
+- Design patterns
 
-**Thesis:** Every process check and documentation exists because a human made a mess and we needed a system to catch it.preou
+**Thesis:** Every process check and documentation exists because a human made a mess and we needed a system to catch it.
 
 ---
 
-## Act 2: The AI Messenger Problem (~10 min)
+## Act 2: What Even Is the SDLC? (~5 min)
+
+### The Framework
+
+Transition: _"All those guardrails I just described? The industry actually formalized them into a thing. It's called the Software Development Life Cycle — the SDLC."_
+
+The SDLC is a structured methodology used by development teams to build, deploy, and maintain software systems. It's not a single process — it's the umbrella term for the repeatable phases every piece of software goes through:
+
+1. **Requirements** — What are we building and why?
+2. **Analysis & Planning** — How do we build it? What are the risks?
+3. **Design** — Architecture, data models, interfaces
+4. **Development** — Actually writing the code
+5. **Testing** — Proving it works (and doesn't break everything else)
+6. **Deployment** — Getting it into users' hands
+7. **Maintenance** — Keeping it alive, fixing what breaks
+
+_"If that sounds like common sense... it is. But it took the industry decades to agree on it."_
+
+### The Flavors
+
+Not everyone runs these phases the same way:
+
+- **Waterfall** — Sequential, one phase after another. The OG. _"You finish requirements before you write a single line of code. In theory."_
+- **Agile** — Iterative sprints, continuous improvement. _"You do all the phases, but in two-week chunks."_
+- **V-Model** — Every dev phase has a matching test phase. _"The QA team's favorite."_
+- **Spiral** — Cycles of planning, risk analysis, development, and testing. _"For when you're not sure what you're building yet."_
+- **Lean** — Borrowed from manufacturing. Eliminate waste at every step.
+- **DevOps** — Reconfigures the SDLC into a continuous loop. Dev and ops aren't separate teams — they're one pipeline.
+
+### Why This Matters for the Talk
+
+_"Here's the thing — whether you're doing waterfall, agile, or something in between, the phases are basically the same. Requirements, design, build, test, deploy, maintain. The SDLC is the skeleton. Everything else is just how fast you spin the wheel."_
+
+_"And every phase exists because of stories like the ones I just told you. The SDLC is scar tissue. Beautiful, organized scar tissue."_
+
+---
+
+## Act 3: The AI Messenger Problem (~10 min)
 
 ### The Copy-Paste Developer
 
@@ -90,7 +128,7 @@ _"We're basically a human API gateway with a salary."_
 
 ---
 
-## Act 3: A Better Way — cc-sdlc (~5 min, leads into Act 4)
+## Act 4: A Better Way — cc-sdlc (~5 min, leads into Act 5)
 
 ### The Pitch
 
@@ -112,20 +150,45 @@ Phase 5  Verification      QA + security + browser testing in parallel, auto-fix
 Phase 6  Handoff           Summary of everything built, decisions made, next steps
 ```
 
+### How This Maps to the SDLC
+
+_"Remember those seven phases we talked about? Let's see how they line up."_
+
+| SDLC Phase | cc-sdlc | Notes |
+|---|---|---|
+| Requirements | Phase 1 | Direct match |
+| Analysis & Planning | Phases 2 + 3 | We split this — architecture decisions and task sequencing are separate concerns |
+| Design | Phase 2 | Folded into architecture |
+| Development | Phase 4 | Direct match |
+| Testing | Phases 2 + 5 | Test cases are *designed* in Phase 2, *executed* in Phase 5 — testing shifts left |
+| Deployment | — | Not covered |
+| Maintenance | — | Not covered |
+
+_"So we cover five of the seven phases. The build cycle — from 'what do we want' to 'here's working, verified code' — that's fully automated. But we stop at handoff. We don't deploy, and we don't maintain."_
+
+### The Missing Pieces — Where Could This Go?
+
+_"That's not an accident. But it's worth thinking about what those would look like."_
+
+- **Deployment** — An agent that takes the verified code and actually ships it. Opens the PR, waits for CI, merges on green, monitors the rollout. The pieces exist today — GitHub Actions, feature flags, canary deploys — you'd just need an agent that orchestrates them instead of a human clicking "merge."
+- **Maintenance** — This is the harder one. An agent that watches production — error rates, performance regressions, user reports — and when something breaks, kicks off a new SDLC cycle to fix it. Brief writes itself from the alert. _"Your monitoring becomes your product manager."_
+
+_"We're not building these today. But the point is: every phase of the SDLC is a candidate for orchestration. We just started with the ones where humans write the most slop."_
+
 Transition: _"Let me show you what's actually under the hood."_
 
 ---
 
-## Act 4: Under the Hood — The Demo (~20 min, the bulk)
+## Act 5: Under the Hood — The Demo (~20 min, the bulk)
 
-### 4a. The Brief & /generate-brief
+### 5a. The Brief & /generate-brief
 
 Start here. The quality of output is gated by the quality of input.
 
 - Show the interactive Q&A that produces a structured brief
 - _"Garbage in, garbage out — that's been true since 1962."_
 
-### 4b. The Agents
+### 5b. The Agents
 
 Walk through the roster and explain WHY each exists:
 
@@ -142,7 +205,7 @@ Walk through the roster and explain WHY each exists:
 | `manual-tester` | Browser-based walkthrough (optional) | Real user simulation |
 | `merge-resolver` | Resolves git conflicts | Understands intent, not just text |
 
-### 4c. Context Bloat — The Silent Killer
+### 5c. Context Bloat — The Silent Killer
 
 **This is a key insight for the audience.**
 
@@ -151,7 +214,7 @@ Walk through the roster and explain WHY each exists:
 - _"You wouldn't brief a surgeon on the hospital's parking garage layout. Same principle."_
 - This is why a single monolithic prompt fails at scale — you need specialized agents with scoped context
 
-### 4d. The Orchestrator (/orchestrate)
+### 5d. The Orchestrator (/orchestrate)
 
 Show how it:
 - Sequences the agents
@@ -159,13 +222,14 @@ Show how it:
 - Handles the verification loop (up to 3 auto-fix cycles)
 - Is NOT a black box — you define the flow
 
-### 4e. Optimizations
+### 5e. Optimizations
 
-- **Auto-research:** Agents can research best practices before executing (e.g., the architect researches patterns relevant to the stack)
+- **Auto-research:** You can have a system where an AI optimizes these prompts automatically. You could potentially run it to get
+cheaper models to also do well in this flow.
 - **Evals:** How to measure individual agent performance and tune prompts
 - **The docs/ output:** Everything is documented, auditable, traceable — the SDLC paperwork writes itself
 
-### 4f. Key Files to Show
+### 5f. Key Files to Show
 
 Walk through these in the repo:
 - `src/agents/` — agent definitions
@@ -174,7 +238,7 @@ Walk through these in the repo:
 
 ---
 
-## Act 5: The Future — LCARS for Development (~10 min)
+## Act 6: The Future — LCARS for Development (~10 min)
 
 ### The Vision
 
@@ -218,7 +282,7 @@ But the speed is incomparable.
 
 ### Closing Line
 
-_"We went from 'the most expensive dash in history' to orchestrating entire product builds from a one-paragraph brief. The future isn't AI replacing developers. It's developers who know how to orchestrate AI replacing developers who don't."_
+_"We started with a required field that broke checkout and a feature flag that DDoS'd our own servers. We built an entire industry of process around preventing that. And now we can orchestrate that whole process — from a one-paragraph brief to verified, reviewed, tested code — without being the messenger pigeon in the middle. The future isn't AI replacing developers. It's developers who know how to orchestrate AI replacing developers who don't."_
 
 ---
 
@@ -227,11 +291,11 @@ _"We went from 'the most expensive dash in history' to orchestrating entire prod
 | Section | Time | Notes |
 |---------|------|-------|
 | Act 1: Human Slop | 10 min | Stories, laughs, historical context |
-| Act 2: AI Messenger | 10 min | Relatable pain, the messenger pigeon bit |
-| Act 3: The Pitch | 5 min | Quick intro to cc-sdlc |
-| Act 4: Under the Hood | 20 min | The meat — demo, agents, context bloat, optimizations |
-| Act 5: The Future | 10 min | Vision, frontier tools, closing |
-| Buffer / Q&A | 5 min | |
+| Act 2: What Is the SDLC? | 5 min | Framework, flavors, "scar tissue" line |
+| Act 3: AI Messenger | 10 min | Relatable pain, the messenger pigeon bit |
+| Act 4: The Pitch | 5 min | Quick intro to cc-sdlc |
+| Act 5: Under the Hood | 20 min | The meat — demo, agents, context bloat, optimizations |
+| Act 6: The Future | 10 min | Vision, frontier tools, closing |
 | **Total** | **60 min** | |
 
 ---
@@ -239,18 +303,19 @@ _"We went from 'the most expensive dash in history' to orchestrating entire prod
 ## Slide Notes (for when we build the deck)
 
 - Act 1 slides should be visual and fun — maybe screenshots of the bugs, memes
-- Act 2 should have the "messenger pigeon" flow diagram
-- Act 3 needs the clean 6-phase pipeline visual
-- Act 4 is mostly code/repo screenshots — keep slides minimal, let the code speak
-- Act 5 should end with an LCARS-style mockup if possible
+- Act 2 could use a simple diagram of the SDLC phases as a cycle/wheel
+- Act 3 should have the "messenger pigeon" flow diagram
+- Act 4 needs the clean 6-phase pipeline visual
+- Act 5 is mostly code/repo screenshots — keep slides minimal, let the code speak
+- Act 6 should end with an LCARS-style mockup if possible
 
 ---
 
 ## TODO Before Building Slides
 
 - [ ] Write your personal slop story for the opening
-- [ ] Write your "AI messenger" story for Act 2  
+- [ ] Write your "AI messenger" story for Act 3  
 - [ ] Pick which 3-4 funny bug examples to keep (cut the rest)
-- [ ] Decide how deep to go on each agent in Act 4
+- [ ] Decide how deep to go on each agent in Act 5
 - [ ] Optional: add a personal story about a process that saved you
 - [ ] Review Kilo Code and Gas Town sections for accuracy
