@@ -2,7 +2,7 @@
   "hooks": {
     "beforeShellExecution": [
       {
-        "command": ".cursor/hooks/check-memory.sh",
+        "command": "hooks/check-memory.sh",
         "timeout": 5000,
         "enabled": true
       }

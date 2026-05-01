@@ -1,0 +1,17 @@
+{
+  "name": "orchestrate-sdlc",
+  "description": "Full SDLC pipeline: requirements → architecture → planning → implementation → verification, fully automated from a product brief.",
+  "version": "1.0.0",
+  "author": {
+    "name": "SchoolAI"
+  },
+  "homepage": "https://github.com/SchoolAI/orchestrate-sdlc",
+  "repository": "https://github.com/SchoolAI/orchestrate-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "sdlc",
+    "orchestration",
+    "agents",
+    "ai"
+  ]
+}

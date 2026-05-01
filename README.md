@@ -1,45 +1,50 @@
-# cc-sdlc
+# orchestrate-sdlc
 
 A Claude Code / Cursor SDLC pipeline that takes a product brief and fully implements it — requirements, architecture, task planning, implementation, verification, and a handoff summary — with no manual intervention.
 
+Distributed as a plugin for both Claude Code and Cursor. The repo is private to SchoolAI; install requires GitHub access to the [SchoolAI/orchestrate-sdlc](https://github.com/SchoolAI/orchestrate-sdlc) repo.
+
 ## Prerequisites
 
-- **Node.js 18+**
 - **[Claude Code](https://claude.ai/code)** or **[Cursor](https://cursor.com)** installed and authenticated
+- GitHub access to `SchoolAI/orchestrate-sdlc` (i.e. `git clone` of the repo succeeds from your machine)
 - A **git repository** to run the pipeline in
 
-## Install
+## Install — Claude Code
 
-### Claude Code
+Run these two slash commands inside Claude Code:
 
-```bash
-npx cc-sdlc
+```
+/plugin marketplace add SchoolAI/orchestrate-sdlc
+/plugin install orchestrate-sdlc@orchestrate-sdlc
 ```
 
-Installs skills (`/orchestrate`, `/generate-brief`) and all agents into `~/.claude`.
+Then `/reload-plugins` (or restart Claude Code). The skills are namespaced under the plugin:
 
-```bash
-npx cc-sdlc --force                          # overwrite existing files
-npx cc-sdlc --claude-dir /path/to/.claude    # custom directory
+- `/orchestrate-sdlc:orchestrate <brief>`
+- `/orchestrate-sdlc:generate-brief <topic>`
+
+To pull the latest version later:
+
+```
+/plugin marketplace update orchestrate-sdlc
 ```
 
-### Cursor
+## Install — Cursor
+
+Cursor doesn't expose a per-individual "add a remote marketplace by URL" command, so install is a one-time clone + symlink into Cursor's local plugins folder:
 
 ```bash
-npx cc-sdlc --cursor
+git clone https://github.com/SchoolAI/orchestrate-sdlc.git ~/code/orchestrate-sdlc
+ln -s ~/code/orchestrate-sdlc/.cursor ~/.cursor/plugins/local/orchestrate-sdlc
 ```
 
-Installs skills and all agents into `~/.cursor`.
+Restart Cursor. The clone path (`~/code/orchestrate-sdlc`) is just a suggestion — anywhere you keep repos works. The symlink target under `~/.cursor/plugins/local/` is what Cursor actually loads.
+
+To pull the latest version later:
 
 ```bash
-npx cc-sdlc --cursor --force                         # overwrite existing files
-npx cc-sdlc --cursor-dir /path/to/.cursor            # custom directory
-```
-
-### Both at once
-
-```bash
-npx cc-sdlc --claude --cursor
+cd ~/code/orchestrate-sdlc && git pull
 ```
 
 ## Usage
@@ -47,25 +52,27 @@ npx cc-sdlc --claude --cursor
 Open Claude Code or Cursor in any repository and run:
 
 ```
-/orchestrate <your product brief>
+/orchestrate-sdlc:orchestrate <your product brief>
 ```
+
+(In Cursor, the local-install path uses the unprefixed `/orchestrate` form. In Claude Code, plugin skills are always namespaced.)
 
 **Example:**
 
 ```
-/orchestrate Build a URL shortener where users paste a long URL and get a short
-link. Clicking the short link redirects to the original. Track click counts.
-No user accounts required.
+/orchestrate-sdlc:orchestrate Build a URL shortener where users paste a long URL
+and get a short link. Clicking the short link redirects to the original. Track
+click counts. No user accounts required.
 ```
 
 The pipeline runs fully automated from there.
 
 ### Generating a brief interactively
 
-If you're not sure what to put in the brief, use `/generate-brief` first. It walks you through a short Q&A and produces a structured brief you can then pass to `/orchestrate`.
+If you're not sure what to put in the brief, use `generate-brief` first. It walks you through a short Q&A and produces a structured brief you can then pass to `orchestrate`.
 
 ```
-/generate-brief task management app
+/orchestrate-sdlc:generate-brief task management app
 ```
 
 ## What it does
@@ -125,8 +132,32 @@ The pipeline works without this — the `manual-tester` is skipped if the extens
 
 ## Contributing
 
-Source files live in `src/` — edit agents in `src/agents/` and skills in `src/skills/`. Each source file uses combined frontmatter with `claude:` and `cursor:` subsections for tool-specific fields. After editing, run the build to regenerate the `.claude/` and `.cursor/` output directories:
+Source files live in `src/` — edit agents in `src/agents/`, skills in `src/skills/`, and hook scripts in `src/hooks/`. Each agent/skill source file uses combined frontmatter with `claude:` and `cursor:` subsections for tool-specific fields. After editing, run the build to regenerate the `.claude/` and `.cursor/` plugin directories (and their manifests):
 
 ```bash
 npm run build
 ```
+
+The build emits:
+
+- `.claude/` and `.cursor/` — the two plugin roots (each contains its own `agents/`, `skills/`, `hooks/`, and `.{claude,cursor}-plugin/plugin.json`)
+- `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json` — marketplace catalogs at the repo root, each pointing at the relevant plugin directory
+
+### Testing locally
+
+For Claude Code, point its marketplace at your working copy:
+
+```
+/plugin marketplace add /absolute/path/to/orchestrate-sdlc
+/plugin install orchestrate-sdlc@orchestrate-sdlc
+```
+
+After making changes, run `npm run build` and then `/plugin marketplace update orchestrate-sdlc` followed by `/reload-plugins`.
+
+For Cursor, symlink your working copy's `.cursor/` directory into `~/.cursor/plugins/local/`:
+
+```bash
+ln -s "$(pwd)/.cursor" ~/.cursor/plugins/local/orchestrate-sdlc
+```
+
+Restart Cursor (or Developer: Reload Window) after each `npm run build`.

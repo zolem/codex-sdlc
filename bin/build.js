@@ -26,12 +26,25 @@ const ROOT = path.join(__dirname, '..');
 const SRC_AGENTS = path.join(ROOT, 'src', 'agents');
 const SRC_SKILLS = path.join(ROOT, 'src', 'skills');
 const SRC_HOOKS = path.join(ROOT, 'src', 'hooks');
-const CLAUDE_AGENTS = path.join(ROOT, '.claude', 'agents');
-const CURSOR_AGENTS = path.join(ROOT, '.cursor', 'agents');
-const CLAUDE_SKILLS = path.join(ROOT, '.claude', 'skills');
-const CURSOR_SKILLS = path.join(ROOT, '.cursor', 'skills');
-const CLAUDE_HOOKS = path.join(ROOT, '.claude', 'hooks');
-const CURSOR_HOOKS = path.join(ROOT, '.cursor', 'hooks');
+const CLAUDE_ROOT = path.join(ROOT, '.claude');
+const CURSOR_ROOT = path.join(ROOT, '.cursor');
+const CLAUDE_AGENTS = path.join(CLAUDE_ROOT, 'agents');
+const CURSOR_AGENTS = path.join(CURSOR_ROOT, 'agents');
+const CLAUDE_SKILLS = path.join(CLAUDE_ROOT, 'skills');
+const CURSOR_SKILLS = path.join(CURSOR_ROOT, 'skills');
+const CLAUDE_HOOKS = path.join(CLAUDE_ROOT, 'hooks');
+const CURSOR_HOOKS = path.join(CURSOR_ROOT, 'hooks');
+const CLAUDE_PLUGIN_DIR = path.join(CLAUDE_ROOT, '.claude-plugin');
+const CURSOR_PLUGIN_DIR = path.join(CURSOR_ROOT, '.cursor-plugin');
+const CLAUDE_MARKETPLACE_DIR = path.join(ROOT, '.claude-plugin');
+const CURSOR_MARKETPLACE_DIR = path.join(ROOT, '.cursor-plugin');
+
+const PLUGIN_NAME = 'orchestrate-sdlc';
+const PLUGIN_VERSION = '1.0.0';
+const PLUGIN_DESCRIPTION = 'Full SDLC pipeline: requirements → architecture → planning → implementation → verification, fully automated from a product brief.';
+const PLUGIN_HOMEPAGE = 'https://github.com/SchoolAI/orchestrate-sdlc';
+const PLUGIN_AUTHOR = { name: 'SchoolAI' };
+const PLUGIN_KEYWORDS = ['sdlc', 'orchestration', 'agents', 'ai'];
 
 // --- YAML helpers ---
 
@@ -190,7 +203,7 @@ const CLAUDE_HOOK_CONFIG = {
         hooks: [
           {
             type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-memory.sh',
+            command: '"${CLAUDE_PLUGIN_ROOT}"/hooks/check-memory.sh',
             timeout: 5
           }
         ]
@@ -201,7 +214,7 @@ const CLAUDE_HOOK_CONFIG = {
         hooks: [
           {
             type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/process-watchdog.sh',
+            command: '"${CLAUDE_PLUGIN_ROOT}"/hooks/process-watchdog.sh',
             async: true
           }
         ]
@@ -214,7 +227,7 @@ const CURSOR_HOOK_CONFIG = {
   hooks: {
     beforeShellExecution: [
       {
-        command: '.cursor/hooks/check-memory.sh',
+        command: 'hooks/check-memory.sh',
         timeout: 5000,
         enabled: true
       }
@@ -255,6 +268,81 @@ function buildHooks() {
   console.log('  built hook configs');
 }
 
+// --- Plugin and marketplace manifests ---
+
+function buildManifests() {
+  ensureDir(CLAUDE_PLUGIN_DIR);
+  ensureDir(CURSOR_PLUGIN_DIR);
+  ensureDir(CLAUDE_MARKETPLACE_DIR);
+  ensureDir(CURSOR_MARKETPLACE_DIR);
+
+  const claudePluginManifest = {
+    name: PLUGIN_NAME,
+    description: PLUGIN_DESCRIPTION,
+    version: PLUGIN_VERSION,
+    author: PLUGIN_AUTHOR,
+    homepage: PLUGIN_HOMEPAGE,
+    repository: PLUGIN_HOMEPAGE,
+    license: 'MIT',
+    keywords: PLUGIN_KEYWORDS
+  };
+
+  const cursorPluginManifest = {
+    name: PLUGIN_NAME,
+    description: PLUGIN_DESCRIPTION,
+    version: PLUGIN_VERSION,
+    author: PLUGIN_AUTHOR,
+    homepage: PLUGIN_HOMEPAGE,
+    repository: PLUGIN_HOMEPAGE,
+    license: 'MIT',
+    keywords: PLUGIN_KEYWORDS
+  };
+
+  const claudeMarketplace = {
+    name: PLUGIN_NAME,
+    owner: PLUGIN_AUTHOR,
+    plugins: [
+      {
+        name: PLUGIN_NAME,
+        source: './.claude',
+        description: PLUGIN_DESCRIPTION
+      }
+    ]
+  };
+
+  const cursorMarketplace = {
+    name: PLUGIN_NAME,
+    owner: PLUGIN_AUTHOR,
+    metadata: { description: PLUGIN_DESCRIPTION },
+    plugins: [
+      {
+        name: PLUGIN_NAME,
+        source: './.cursor',
+        description: PLUGIN_DESCRIPTION
+      }
+    ]
+  };
+
+  fs.writeFileSync(
+    path.join(CLAUDE_PLUGIN_DIR, 'plugin.json'),
+    JSON.stringify(claudePluginManifest, null, 2) + '\n'
+  );
+  fs.writeFileSync(
+    path.join(CURSOR_PLUGIN_DIR, 'plugin.json'),
+    JSON.stringify(cursorPluginManifest, null, 2) + '\n'
+  );
+  fs.writeFileSync(
+    path.join(CLAUDE_MARKETPLACE_DIR, 'marketplace.json'),
+    JSON.stringify(claudeMarketplace, null, 2) + '\n'
+  );
+  fs.writeFileSync(
+    path.join(CURSOR_MARKETPLACE_DIR, 'marketplace.json'),
+    JSON.stringify(cursorMarketplace, null, 2) + '\n'
+  );
+  console.log('  built plugin manifests');
+  console.log('  built marketplace manifests');
+}
+
 // --- Main ---
 
 console.log('Building agents...');
@@ -263,4 +351,6 @@ console.log('Building skills...');
 buildSkills();
 console.log('Building hooks...');
 buildHooks();
+console.log('Building manifests...');
+buildManifests();
 console.log('Done.');

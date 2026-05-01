@@ -1,0 +1,16 @@
+{
+  "name": "orchestrate-sdlc",
+  "owner": {
+    "name": "SchoolAI"
+  },
+  "metadata": {
+    "description": "Full SDLC pipeline: requirements → architecture → planning → implementation → verification, fully automated from a product brief."
+  },
+  "plugins": [
+    {
+      "name": "orchestrate-sdlc",
+      "source": "./.cursor",
+      "description": "Full SDLC pipeline: requirements → architecture → planning → implementation → verification, fully automated from a product brief."
+    }
+  ]
+}
