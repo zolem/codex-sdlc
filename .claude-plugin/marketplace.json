@@ -1,0 +1,13 @@
+{
+  "name": "cc-sdlc",
+  "owner": {
+    "name": "zolem"
+  },
+  "plugins": [
+    {
+      "name": "cc-sdlc",
+      "source": "./.claude",
+      "description": "Claude Code / Cursor SDLC pipeline — install agents and /orchestrate globally"
+    }
+  ]
+}

@@ -25,8 +25,8 @@ Most repos have a few top-level surfaces a feature might touch: a primary app, s
 1. Read `{docs_folder}/requirements.md`.
 2. Apply surface detection above.
 3. **Scan the target repo for in-repo docs**, using judgment. Repos mix useful docs with garbage; do not rely on a hardcoded list.
-   - **Always read** the root `CLAUDE.md` (if present) and root `README.md`.
-   - **List** the contents of `docs/` and any nested `README.md` / `CLAUDE.md` files near the surfaces detected above (e.g. `apps/<app>/README.md`, `packages/<pkg>/CLAUDE.md`, `src/<area>/README.md`).
+   - **Always read** the root `README.md`.
+   - **List** the contents of `docs/` and any nested `README.md` / `CLAUDE.md` files near the surfaces detected above (e.g. `apps/<app>/README.md`, `src/<area>/README.md`).
    - Apply these heuristics to each candidate:
      - **Likely relevant**: pattern docs (e.g. `docs/patterns/*.md`), cross-cutting topic guides (`docs/testing.md`, `docs/auth.md`), feature-area docs whose name matches the feature domain, ADRs / RFCs whose title matches the feature domain.
      - **Likely garbage for this purpose**: PNG screenshots, dated plan files, one-off PRDs for unrelated features, environment-variable references unless config work is in scope, ticket-IDs as filenames (e.g. `JIRA-123.md`).

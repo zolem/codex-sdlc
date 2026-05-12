@@ -10,36 +10,40 @@ A Claude Code / Cursor SDLC pipeline that takes a product brief and fully implem
 
 ## Install
 
-### Claude Code
-
-```bash
-npx cc-sdlc
-```
-
-Installs skills (`/orchestrate`, `/generate-brief`) and all agents into `~/.claude`.
-
-```bash
-npx cc-sdlc --force                          # overwrite existing files
-npx cc-sdlc --claude-dir /path/to/.claude    # custom directory
-```
+Each install also drops the walkthrough desktop app (`orchestrate-walkthrough`) onto your `$PATH` so the orchestrate skill can auto-launch it. Skip it with `SKIP_APP=1`.
 
 ### Cursor
 
 ```bash
-npx cc-sdlc --cursor
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | bash
 ```
 
-Installs skills and all agents into `~/.cursor`.
+Installs the cc-sdlc Cursor plugin into `~/.cursor/plugins/local/cc-sdlc/` and the walkthrough app. Restart Cursor afterward.
+
+### Claude Code
 
 ```bash
-npx cc-sdlc --cursor --force                         # overwrite existing files
-npx cc-sdlc --cursor-dir /path/to/.cursor            # custom directory
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | MODE=claude bash
 ```
 
-### Both at once
+Installs the walkthrough app, then prints next steps. Inside Claude Code:
+
+```
+/plugin marketplace add zolem/cc-sdlc
+/plugin install cc-sdlc@cc-sdlc
+```
+
+### Options
 
 ```bash
-npx cc-sdlc --claude --cursor
+# Pin a version
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | VERSION=v1.1.0 bash
+
+# Skip the desktop app
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | SKIP_APP=1 bash
+
+# Install from your fork
+curl -fsSL .../install.sh | REPO=my-org/cc-sdlc bash
 ```
 
 ## Usage

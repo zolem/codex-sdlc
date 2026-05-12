@@ -25,10 +25,16 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const SRC_AGENTS = path.join(ROOT, 'src', 'agents');
 const SRC_SKILLS = path.join(ROOT, 'src', 'skills');
-const CLAUDE_AGENTS = path.join(ROOT, '.claude', 'agents');
-const CURSOR_AGENTS = path.join(ROOT, '.cursor', 'agents');
-const CLAUDE_SKILLS = path.join(ROOT, '.claude', 'skills');
-const CURSOR_SKILLS = path.join(ROOT, '.cursor', 'skills');
+const CLAUDE_DIR = path.join(ROOT, '.claude');
+const CURSOR_DIR = path.join(ROOT, '.cursor');
+const CLAUDE_AGENTS = path.join(CLAUDE_DIR, 'agents');
+const CURSOR_AGENTS = path.join(CURSOR_DIR, 'agents');
+const CLAUDE_SKILLS = path.join(CLAUDE_DIR, 'skills');
+const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const REPO_URL = 'https://github.com/zolem/cc-sdlc';
+const OWNER = 'zolem';
+const PLUGIN_NAME = 'cc-sdlc';
 
 // --- YAML helpers ---
 
@@ -177,10 +183,61 @@ function copyDir(src, dest) {
   }
 }
 
+function buildManifests() {
+  const pluginMeta = {
+    name: PLUGIN_NAME,
+    description: PKG.description,
+    version: PKG.version,
+    author: { name: OWNER },
+    homepage: REPO_URL,
+    repository: REPO_URL,
+    license: PKG.license,
+    keywords: PKG.keywords || []
+  };
+
+  const marketplace = {
+    name: PLUGIN_NAME,
+    owner: { name: OWNER },
+    plugins: [
+      {
+        name: PLUGIN_NAME,
+        source: './.claude',
+        description: PKG.description
+      }
+    ]
+  };
+
+  const rootMarketplaceDir = path.join(ROOT, '.claude-plugin');
+  ensureDir(rootMarketplaceDir);
+  fs.writeFileSync(
+    path.join(rootMarketplaceDir, 'marketplace.json'),
+    JSON.stringify(marketplace, null, 2) + '\n'
+  );
+  console.log('  built manifest: .claude-plugin/marketplace.json');
+
+  const claudePluginDir = path.join(CLAUDE_DIR, '.claude-plugin');
+  ensureDir(claudePluginDir);
+  fs.writeFileSync(
+    path.join(claudePluginDir, 'plugin.json'),
+    JSON.stringify(pluginMeta, null, 2) + '\n'
+  );
+  console.log('  built manifest: .claude/.claude-plugin/plugin.json');
+
+  const cursorPluginDir = path.join(CURSOR_DIR, '.cursor-plugin');
+  ensureDir(cursorPluginDir);
+  fs.writeFileSync(
+    path.join(cursorPluginDir, 'plugin.json'),
+    JSON.stringify(pluginMeta, null, 2) + '\n'
+  );
+  console.log('  built manifest: .cursor/.cursor-plugin/plugin.json');
+}
+
 // --- Main ---
 
 console.log('Building agents...');
 buildAgents();
 console.log('Building skills...');
 buildSkills();
+console.log('Building plugin manifests...');
+buildManifests();
 console.log('Done.');

@@ -1,0 +1,111 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: cc-sdlc ${{ github.ref_name }}
+          draft: true
+          generate_release_notes: true
+
+  build-plugins:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build plugin trees
+        run: npm run build
+
+      - name: Tar plugin trees
+        run: |
+          tar czf claude-plugin.tar.gz -C .claude .
+          tar czf cursor-plugin.tar.gz -C .cursor .
+
+      - name: Attach plugins to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            claude-plugin.tar.gz
+            cursor-plugin.tar.gz
+
+  build-app:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Build Tauri app
+        working-directory: app
+        run: npx tauri build --target ${{ matrix.target }}
+
+      - name: Collect artifacts
+        working-directory: app
+        run: |
+          mkdir -p ../release-artifacts
+          ls -laR src-tauri/target/${{ matrix.target }}/release/bundle/
+          find src-tauri/target/${{ matrix.target }}/release/bundle/ \
+            \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) \
+            -exec cp -v {} ../release-artifacts/ \;
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: release-artifacts/*
