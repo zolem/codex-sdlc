@@ -83,60 +83,6 @@ function copySkillDir(src, dest, installed, skipped) {
   }
 }
 
-// Install hook scripts (executable .sh files) to dest hooks dir
-function installHooks(srcHooksDir, destHooksDir, installed, skipped) {
-  if (!fs.existsSync(srcHooksDir)) return;
-  fs.mkdirSync(destHooksDir, { recursive: true });
-  for (const file of fs.readdirSync(srcHooksDir)) {
-    if (!file.endsWith('.sh')) continue;
-    const srcFile = path.join(srcHooksDir, file);
-    const destFile = path.join(destHooksDir, file);
-    if (fs.existsSync(destFile) && !force) {
-      skipped.push(`  ${destFile} (already exists — use --force to overwrite)`);
-    } else {
-      fs.copyFileSync(srcFile, destFile);
-      fs.chmodSync(destFile, 0o755);
-      installed.push(`  ${destFile}`);
-    }
-  }
-}
-
-// Merge hook configuration into the target's settings file.
-// Claude: merges hooks into settings.json
-// Cursor: writes hooks.json directly
-function installHookConfig(srcHooksDir, target, installed, skipped) {
-  const configSrc = path.join(srcHooksDir, 'hooks.json');
-  if (!fs.existsSync(configSrc)) return;
-
-  const hookConfig = JSON.parse(fs.readFileSync(configSrc, 'utf8'));
-
-  if (target.name === 'Cursor') {
-    // Cursor: hooks.json is a standalone file
-    const destFile = path.join(target.dest, 'hooks.json');
-    if (fs.existsSync(destFile) && !force) {
-      skipped.push(`  ${destFile} (already exists — use --force to overwrite)`);
-    } else {
-      fs.writeFileSync(destFile, JSON.stringify(hookConfig, null, 2) + '\n');
-      installed.push(`  ${destFile}`);
-    }
-  } else {
-    // Claude: merge hooks key into settings.json
-    const settingsFile = path.join(target.dest, 'settings.json');
-    let settings = {};
-    if (fs.existsSync(settingsFile)) {
-      try { settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
-    }
-
-    if (settings.hooks && !force) {
-      skipped.push(`  ${settingsFile} hooks config (already has hooks — use --force to overwrite)`);
-    } else {
-      settings.hooks = hookConfig.hooks;
-      fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n');
-      installed.push(`  ${settingsFile} (hooks config merged)`);
-    }
-  }
-}
-
 console.log('\ncc-sdlc install\n');
 
 for (const target of targets) {
@@ -148,8 +94,6 @@ for (const target of targets) {
 
   installFiles(path.join(srcRoot, 'agents'), path.join(target.dest, 'agents'), installed, skipped);
   installSkills(path.join(srcRoot, 'skills'), path.join(target.dest, 'skills'), installed, skipped);
-  installHooks(path.join(srcRoot, 'hooks'), path.join(target.dest, 'hooks'), installed, skipped);
-  installHookConfig(path.join(srcRoot, 'hooks'), target, installed, skipped);
 
   if (installed.length > 0) {
     console.log('Installed:');

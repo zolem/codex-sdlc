@@ -10,36 +10,40 @@ A Claude Code / Cursor SDLC pipeline that takes a product brief and fully implem
 
 ## Install
 
-### Claude Code
-
-```bash
-npx cc-sdlc
-```
-
-Installs skills (`/orchestrate`, `/generate-brief`) and all agents into `~/.claude`.
-
-```bash
-npx cc-sdlc --force                          # overwrite existing files
-npx cc-sdlc --claude-dir /path/to/.claude    # custom directory
-```
+Each install also drops the walkthrough desktop app (`orchestrate-walkthrough`) onto your `$PATH` so the orchestrate skill can auto-launch it. Skip it with `SKIP_APP=1`.
 
 ### Cursor
 
 ```bash
-npx cc-sdlc --cursor
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | bash
 ```
 
-Installs skills and all agents into `~/.cursor`.
+Installs the cc-sdlc Cursor plugin into `~/.cursor/plugins/local/cc-sdlc/` and the walkthrough app. Restart Cursor afterward.
+
+### Claude Code
 
 ```bash
-npx cc-sdlc --cursor --force                         # overwrite existing files
-npx cc-sdlc --cursor-dir /path/to/.cursor            # custom directory
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | MODE=claude bash
 ```
 
-### Both at once
+Installs the walkthrough app, then prints next steps. Inside Claude Code:
+
+```
+/plugin marketplace add zolem/cc-sdlc
+/plugin install cc-sdlc@cc-sdlc
+```
+
+### Options
 
 ```bash
-npx cc-sdlc --claude --cursor
+# Pin a version
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | VERSION=v1.1.0 bash
+
+# Skip the desktop app
+curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | SKIP_APP=1 bash
+
+# Install from your fork
+curl -fsSL .../install.sh | REPO=my-org/cc-sdlc bash
 ```
 
 ## Usage
@@ -72,47 +76,62 @@ If you're not sure what to put in the brief, use `/generate-brief` first. It wal
 
 ```
 Phase 1  Requirements      Product brief → user stories, personas, acceptance criteria
-Phase 2  Architecture      Requirements + codebase → implementation plan + test cases (parallel)
-Phase 3  Planning          All docs → ordered phase files with dependency summary
-Phase 4  Implementation    One engineer per phase, sequential; engineer validates its own work before reporting complete
-Phase 5  Verification      Full pass: QA + security + browser testing in parallel, auto-fix loop (up to 3x)
-Phase 6  Handoff           Summary of everything built, decisions made, and suggested next steps
+Phase 2  Context           Requirements + repo docs/code → focused context briefing
+Phase 3  Architecture      Requirements + context → implementation plan + test cases (parallel)
+Phase 4  Planning          All docs → ordered phase files with atomic work items
+Phase 5  Implementation    Per phase: engineer (atomic commits) → qa + code review + security in parallel → up to 3 in-place fix iterations → walkthrough
+Phase 6  Integration       Manual browser test of the fully integrated feature
+Phase 7  Handoff           Summary with per-phase walkthroughs as the review entry point
 ```
 
 ### Agents
 
-| Agent               | Role                                                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `product-manager`   | Transforms a brief into a structured requirements doc with user stories and acceptance criteria                   |
-| `architect`         | Reads the codebase and requirements, produces a concrete implementation plan                                      |
-| `qa-analyst`        | Maps every user story to executable test cases covering happy paths, edge cases, and failures                     |
-| `task-planner`      | Decomposes planning docs into an ordered sequence of cohesive implementation phases                               |
-| `engineer`          | Implements a complete phase — all work items, code, and tests — and verifies everything passes before reporting done |
-| `code-reviewer`     | Reviews code for quality, consistency, and correctness against existing codebase patterns                         |
-| `qa-verifier`       | Runs the test suite and checks every test case from the plan is implemented                                       |
-| `security-reviewer` | Reviews changed code for OWASP Top 10 and common vulnerabilities                                                  |
-| `manual-tester`     | Starts the app and walks through user stories in a real browser _(optional, requires Claude in Chrome extension)_ |
-| `merge-resolver`    | Resolves git merge conflicts by understanding the intent of both conflicting tasks                                 |
+| Agent                 | Role                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `product-manager`     | Transforms a brief into a structured requirements doc with user stories and acceptance criteria                   |
+| `context-curator`     | Curates a focused, scope-aware briefing from the repo's docs and code so downstream agents stay narrow            |
+| `architect`           | Combines requirements + context into an implementation plan with explicit SOLID / pattern decisions               |
+| `qa-analyst`          | Writes a user-perspective test plan — what real users will type, click, and trigger                               |
+| `task-planner`        | Decomposes planning docs into ordered phases of atomic work items, each sized for a single commit                 |
+| `engineer`            | Implements a phase one work item at a time, one commit per work item, gated on typecheck + lint                   |
+| `code-reviewer`       | Senior review against the architecture: SOLID, composition, design patterns, correctness                          |
+| `qa-verifier`         | Runs the test suite and checks every test case from the plan is implemented                                       |
+| `security-reviewer`   | Reviews changed code for OWASP Top 10 and common vulnerabilities                                                  |
+| `manual-tester`       | Starts the app and walks through user stories in a real browser _(optional, requires Claude in Chrome extension)_ |
+| `walkthrough-author`  | Generates a per-phase code-review walkthrough that narrates each commit's intent and flags trouble spots          |
+| `merge-resolver`      | Resolves git merge conflicts by understanding the intent of both conflicting tasks                                |
 
 ### Output
 
-All pipeline artifacts are written to `docs/{feature-slug}/`:
+All pipeline artifacts are written to `.orchestrate/{feature-slug}/` at the repo root by default. Override with the `ORCHESTRATE_OUT_DIR` environment variable.
 
 ```
-docs/{feature-slug}/
+.orchestrate/{feature-slug}/
   requirements.md       — user stories and acceptance criteria
+  context.md            — curated context briefing for downstream agents
   architecture.md       — implementation plan and component design
-  test-plan.md          — full test case specification
+  test-plan.md          — user-perspective test cases
   task-index.md         — ordered phase list with dependency summary
+  stack.json            — per-phase status, commits, and verification metadata
   phases/
     phase-1.md          — cohesive phase specs for engineer agents
     phase-2.md
     ...
   verification/
-    qa-report.md           — test suite results and coverage
-    security-report.md     — security findings by severity
-    manual-test-report.md  — browser-based exploratory test results (if Chrome extension enabled)
+    phase-N/
+      qa-report.md           — per-phase test suite results and coverage
+      code-review-report.md  — per-phase senior code review
+      security-report.md     — per-phase security findings
+    manual-test-report.md    — end-of-pipeline browser walkthrough (if Chrome extension enabled)
+  walkthroughs/
+    phase-1.md          — narrated per-commit review guide for the phase
+    phase-2.md
+    ...
 ```
+
+### Optional: walkthrough viewer
+
+`app/` contains an optional Tauri desktop app for browsing per-phase walkthroughs as the pipeline runs. Build it with `cd app && npm install && npm run tauri build`. If `orchestrate-walkthrough` ends up on `$PATH`, the orchestrate skill will auto-launch it at the start of each run. See `app/README.md`.
 
 ## Optional: Browser Testing
 

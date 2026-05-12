@@ -25,13 +25,16 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const SRC_AGENTS = path.join(ROOT, 'src', 'agents');
 const SRC_SKILLS = path.join(ROOT, 'src', 'skills');
-const SRC_HOOKS = path.join(ROOT, 'src', 'hooks');
-const CLAUDE_AGENTS = path.join(ROOT, '.claude', 'agents');
-const CURSOR_AGENTS = path.join(ROOT, '.cursor', 'agents');
-const CLAUDE_SKILLS = path.join(ROOT, '.claude', 'skills');
-const CURSOR_SKILLS = path.join(ROOT, '.cursor', 'skills');
-const CLAUDE_HOOKS = path.join(ROOT, '.claude', 'hooks');
-const CURSOR_HOOKS = path.join(ROOT, '.cursor', 'hooks');
+const CLAUDE_DIR = path.join(ROOT, '.claude');
+const CURSOR_DIR = path.join(ROOT, '.cursor');
+const CLAUDE_AGENTS = path.join(CLAUDE_DIR, 'agents');
+const CURSOR_AGENTS = path.join(CURSOR_DIR, 'agents');
+const CLAUDE_SKILLS = path.join(CLAUDE_DIR, 'skills');
+const CURSOR_SKILLS = path.join(CURSOR_DIR, 'skills');
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const REPO_URL = 'https://github.com/zolem/cc-sdlc';
+const OWNER = 'zolem';
+const PLUGIN_NAME = 'cc-sdlc';
 
 // --- YAML helpers ---
 
@@ -180,79 +183,53 @@ function copyDir(src, dest) {
   }
 }
 
-// --- Hook configuration ---
+function buildManifests() {
+  const pluginMeta = {
+    name: PLUGIN_NAME,
+    description: PKG.description,
+    version: PKG.version,
+    author: { name: OWNER },
+    homepage: REPO_URL,
+    repository: REPO_URL,
+    license: PKG.license,
+    keywords: PKG.keywords || []
+  };
 
-const CLAUDE_HOOK_CONFIG = {
-  hooks: {
-    PreToolUse: [
+  const marketplace = {
+    name: PLUGIN_NAME,
+    owner: { name: OWNER },
+    plugins: [
       {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-memory.sh',
-            timeout: 5
-          }
-        ]
-      }
-    ],
-    SessionStart: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/process-watchdog.sh',
-            async: true
-          }
-        ]
+        name: PLUGIN_NAME,
+        source: './.claude',
+        description: PKG.description
       }
     ]
-  }
-};
+  };
 
-const CURSOR_HOOK_CONFIG = {
-  hooks: {
-    beforeShellExecution: [
-      {
-        command: '.cursor/hooks/check-memory.sh',
-        timeout: 5000,
-        enabled: true
-      }
-    ]
-  }
-};
-
-function buildHooks() {
-  ensureDir(CLAUDE_HOOKS);
-  ensureDir(CURSOR_HOOKS);
-
-  if (!fs.existsSync(SRC_HOOKS)) return;
-
-  // Copy hook scripts to both platforms
-  for (const file of fs.readdirSync(SRC_HOOKS)) {
-    const srcFile = path.join(SRC_HOOKS, file);
-    if (fs.statSync(srcFile).isDirectory()) continue;
-    if (!file.endsWith('.sh')) continue;
-
-    fs.copyFileSync(srcFile, path.join(CLAUDE_HOOKS, file));
-    fs.copyFileSync(srcFile, path.join(CURSOR_HOOKS, file));
-    // Preserve executable bit
-    fs.chmodSync(path.join(CLAUDE_HOOKS, file), 0o755);
-    fs.chmodSync(path.join(CURSOR_HOOKS, file), 0o755);
-
-    console.log(`  built hook: ${file}`);
-  }
-
-  // Write platform-specific hook configs alongside the scripts
+  const rootMarketplaceDir = path.join(ROOT, '.claude-plugin');
+  ensureDir(rootMarketplaceDir);
   fs.writeFileSync(
-    path.join(CLAUDE_HOOKS, 'hooks.json'),
-    JSON.stringify(CLAUDE_HOOK_CONFIG, null, 2) + '\n'
+    path.join(rootMarketplaceDir, 'marketplace.json'),
+    JSON.stringify(marketplace, null, 2) + '\n'
   );
+  console.log('  built manifest: .claude-plugin/marketplace.json');
+
+  const claudePluginDir = path.join(CLAUDE_DIR, '.claude-plugin');
+  ensureDir(claudePluginDir);
   fs.writeFileSync(
-    path.join(CURSOR_HOOKS, 'hooks.json'),
-    JSON.stringify(CURSOR_HOOK_CONFIG, null, 2) + '\n'
+    path.join(claudePluginDir, 'plugin.json'),
+    JSON.stringify(pluginMeta, null, 2) + '\n'
   );
-  console.log('  built hook configs');
+  console.log('  built manifest: .claude/.claude-plugin/plugin.json');
+
+  const cursorPluginDir = path.join(CURSOR_DIR, '.cursor-plugin');
+  ensureDir(cursorPluginDir);
+  fs.writeFileSync(
+    path.join(cursorPluginDir, 'plugin.json'),
+    JSON.stringify(pluginMeta, null, 2) + '\n'
+  );
+  console.log('  built manifest: .cursor/.cursor-plugin/plugin.json');
 }
 
 // --- Main ---
@@ -261,6 +238,6 @@ console.log('Building agents...');
 buildAgents();
 console.log('Building skills...');
 buildSkills();
-console.log('Building hooks...');
-buildHooks();
+console.log('Building plugin manifests...');
+buildManifests();
 console.log('Done.');
