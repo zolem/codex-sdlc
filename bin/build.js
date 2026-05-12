@@ -25,13 +25,10 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const SRC_AGENTS = path.join(ROOT, 'src', 'agents');
 const SRC_SKILLS = path.join(ROOT, 'src', 'skills');
-const SRC_HOOKS = path.join(ROOT, 'src', 'hooks');
 const CLAUDE_AGENTS = path.join(ROOT, '.claude', 'agents');
 const CURSOR_AGENTS = path.join(ROOT, '.cursor', 'agents');
 const CLAUDE_SKILLS = path.join(ROOT, '.claude', 'skills');
 const CURSOR_SKILLS = path.join(ROOT, '.cursor', 'skills');
-const CLAUDE_HOOKS = path.join(ROOT, '.claude', 'hooks');
-const CURSOR_HOOKS = path.join(ROOT, '.cursor', 'hooks');
 
 // --- YAML helpers ---
 
@@ -180,87 +177,10 @@ function copyDir(src, dest) {
   }
 }
 
-// --- Hook configuration ---
-
-const CLAUDE_HOOK_CONFIG = {
-  hooks: {
-    PreToolUse: [
-      {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-memory.sh',
-            timeout: 5
-          }
-        ]
-      }
-    ],
-    SessionStart: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/process-watchdog.sh',
-            async: true
-          }
-        ]
-      }
-    ]
-  }
-};
-
-const CURSOR_HOOK_CONFIG = {
-  hooks: {
-    beforeShellExecution: [
-      {
-        command: '.cursor/hooks/check-memory.sh',
-        timeout: 5000,
-        enabled: true
-      }
-    ]
-  }
-};
-
-function buildHooks() {
-  ensureDir(CLAUDE_HOOKS);
-  ensureDir(CURSOR_HOOKS);
-
-  if (!fs.existsSync(SRC_HOOKS)) return;
-
-  // Copy hook scripts to both platforms
-  for (const file of fs.readdirSync(SRC_HOOKS)) {
-    const srcFile = path.join(SRC_HOOKS, file);
-    if (fs.statSync(srcFile).isDirectory()) continue;
-    if (!file.endsWith('.sh')) continue;
-
-    fs.copyFileSync(srcFile, path.join(CLAUDE_HOOKS, file));
-    fs.copyFileSync(srcFile, path.join(CURSOR_HOOKS, file));
-    // Preserve executable bit
-    fs.chmodSync(path.join(CLAUDE_HOOKS, file), 0o755);
-    fs.chmodSync(path.join(CURSOR_HOOKS, file), 0o755);
-
-    console.log(`  built hook: ${file}`);
-  }
-
-  // Write platform-specific hook configs alongside the scripts
-  fs.writeFileSync(
-    path.join(CLAUDE_HOOKS, 'hooks.json'),
-    JSON.stringify(CLAUDE_HOOK_CONFIG, null, 2) + '\n'
-  );
-  fs.writeFileSync(
-    path.join(CURSOR_HOOKS, 'hooks.json'),
-    JSON.stringify(CURSOR_HOOK_CONFIG, null, 2) + '\n'
-  );
-  console.log('  built hook configs');
-}
-
 // --- Main ---
 
 console.log('Building agents...');
 buildAgents();
 console.log('Building skills...');
 buildSkills();
-console.log('Building hooks...');
-buildHooks();
 console.log('Done.');

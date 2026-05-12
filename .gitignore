@@ -1,0 +1,7 @@
+node_modules/
+.orchestrate/
+
+# App build artifacts
+app/dist/
+app/node_modules/
+app/src-tauri/target/

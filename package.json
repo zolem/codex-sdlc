@@ -13,10 +13,8 @@
     "src/",
     ".claude/agents/",
     ".claude/skills/",
-    ".claude/hooks/",
     ".cursor/agents/",
-    ".cursor/skills/",
-    ".cursor/hooks/"
+    ".cursor/skills/"
   ],
   "engines": {
     "node": ">=18"
