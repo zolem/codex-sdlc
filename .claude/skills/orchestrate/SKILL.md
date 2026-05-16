@@ -127,13 +127,26 @@ echo "${ORCHESTRATE_REVIEW_GATE:-1}"
 
 If the value is `0`, log "review gate disabled — proceeding to implementation" and continue to Phase 6.
 
-Otherwise, surface the brief to the user. Send a single short message in this shape:
+Otherwise, open the brief in the user's default browser. Use the Bash tool with a cross-platform shim — best-effort, do not block on failure:
 
-> The implementation plan is ready for your review:
+```bash
+PLAN="{docs_folder}/plan.html"
+case "$(uname -s)" in
+  Darwin)               open "$PLAN" >/dev/null 2>&1 || true ;;
+  Linux)                xdg-open "$PLAN" >/dev/null 2>&1 & disown ;;
+  CYGWIN*|MINGW*|MSYS*) start "" "$PLAN" >/dev/null 2>&1 || true ;;
+esac
+```
+
+On macOS, if the file is already open in a tab, `open` reuses it. The Tauri walkthrough viewer launched at the start of the run (if installed) will also detect the new `plan.html` and surface it — see the app integration note below.
+
+Then send a single short message to the user:
+
+> I've opened the implementation plan in your browser:
 >
 > `file://{absolute path to plan.html}`
 >
-> Reply `ok` (or any affirmative — "looks good", "proceed", etc.) to start implementation. Otherwise describe what you'd like changed, and the architect and task-planner will revise the plan.
+> Reply `ok` (or any affirmative — "looks good", "proceed", etc.) to start implementation. Otherwise describe what you'd like changed, and the architect and task-planner will revise the plan. If you're reviewing a revised version, refresh the browser tab to see the new content.
 
 Then **wait for the user's next message** before proceeding.
 
