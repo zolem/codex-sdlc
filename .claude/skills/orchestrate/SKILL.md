@@ -33,6 +33,7 @@ Create the artifact folder for this feature:
 {ARTIFACT_ROOT}/{feature-slug}/phases/
 {ARTIFACT_ROOT}/{feature-slug}/walkthroughs/
 {ARTIFACT_ROOT}/{feature-slug}/verification/
+{ARTIFACT_ROOT}/{feature-slug}/revisions/
 ```
 
 Use the Bash tool to create these directories. All agents will read from and write to this folder. Refer to the resolved per-feature path as `{docs_folder}` throughout (e.g. `.orchestrate/url-shortener`).
@@ -102,7 +103,100 @@ The agent will read all prior documents and write:
 
 ---
 
-## Phase 5: Implementation + Per-Phase Verification + Walkthrough
+## Phase 5: Plan Brief & Review Gate
+
+This phase compiles the full pre-implementation planning bundle into a single HTML brief that the user reviews before any code is written. If the user requests changes, the architect, qa-analyst, task-planner, and plan-explainer all re-run with the steering input until the user approves.
+
+### Step 1: Generate the brief
+
+Spin up the `plan-explainer` subagent. Pass:
+- The docs folder path (`{docs_folder}`)
+- `mode: initial` (for v1) or `mode: revision` with `revision: N` and a steering input path (for v2+)
+
+The agent writes `{docs_folder}/plan.html` (or overwrites it, on revisions).
+
+### Step 2: Review gate
+
+The review gate is **on by default**. The user can disable it by setting `ORCHESTRATE_REVIEW_GATE=0` in the environment before invoking the orchestrator; if it's disabled, skip to Phase 6.
+
+Check the env var with the Bash tool:
+
+```bash
+echo "${ORCHESTRATE_REVIEW_GATE:-1}"
+```
+
+If the value is `0`, log "review gate disabled — proceeding to implementation" and continue to Phase 6.
+
+Otherwise, surface the brief to the user. Send a single short message in this shape:
+
+> The implementation plan is ready for your review:
+>
+> `file://{absolute path to plan.html}`
+>
+> Reply `ok` (or any affirmative — "looks good", "proceed", etc.) to start implementation. Otherwise describe what you'd like changed, and the architect and task-planner will revise the plan.
+
+Then **wait for the user's next message** before proceeding.
+
+### Step 3: Interpret the response
+
+When the user replies:
+
+- **Affirmative** (`ok`, `looks good`, `approved`, `proceed`, `ship it`, etc.) — proceed to Phase 6.
+- **Steering input** (anything else that describes desired changes) — proceed to Step 4.
+
+If the response is ambiguous (e.g. a question), answer the question and ask again, rather than guessing approval.
+
+### Step 4: Capture the steering input and revise
+
+Determine the next revision number `N`:
+
+```bash
+ls "{docs_folder}/revisions/" 2>/dev/null | grep -oE 'plan-v[0-9]+\.html' | sed -E 's/plan-v([0-9]+)\.html/\1/' | sort -n | tail -1
+```
+
+If the directory is empty, the current plan is v1 and the next revision will be v2 — so `N=2`. Otherwise add 1 to the highest existing version.
+
+Snapshot the current plan to history:
+
+```bash
+cp "{docs_folder}/plan.html" "{docs_folder}/revisions/plan-v{N-1}.html"
+```
+
+Write the user's steering input verbatim to `{docs_folder}/revisions/v{N}-input.md` using the Write tool. Include a short header so the file is self-describing:
+
+```markdown
+# Steering input for revision v{N}
+
+> Submitted: {ISO 8601 timestamp}
+> Prior plan: revisions/plan-v{N-1}.html
+
+{user's message verbatim}
+```
+
+Re-run the planning agents with the steering context:
+
+1. Spin up the `architect` and `qa-analyst` subagents **in parallel**. Pass each:
+   - The docs folder path (`{docs_folder}`)
+   - The steering input path (`revisions/v{N}-input.md`)
+   - An instruction to incorporate the steering input as a hard requirement; both will overwrite `architecture.md` and `test-plan.md` in place.
+2. After both complete, spin up the `task-planner` subagent. Pass:
+   - The docs folder path (`{docs_folder}`)
+   - The steering input path
+   - An instruction to **review and update** existing phase files and `task-index.md` to reflect the revised architecture and test plan. Phases that no longer make sense should be reshaped, not appended.
+3. Spin up the `plan-explainer` subagent in **revision mode**. Pass:
+   - The docs folder path (`{docs_folder}`)
+   - `mode: revision`
+   - `revision: N`
+   - The steering input path (`revisions/v{N}-input.md`)
+   - The prior plan path (`revisions/plan-v{N-1}.html`)
+
+The agent overwrites `{docs_folder}/plan.html` as v{N}, with the "What changed in v{N}" callout and version-aware §02 decision table.
+
+Return to **Step 2** with the new plan. The loop continues until the user approves.
+
+---
+
+## Phase 6: Implementation + Per-Phase Verification + Walkthrough
 
 Read `{docs_folder}/task-index.md` to get the ordered list of phases.
 
@@ -147,7 +241,7 @@ Spin up the following agents **in parallel**, passing each:
 
 Create `{docs_folder}/verification/phase-N/` if it does not exist.
 
-`manual-tester` does **not** run here — it runs once at the end of the pipeline (Phase 6) because partial features cannot be browser-tested in isolation.
+`manual-tester` does **not** run here — it runs once at the end of the pipeline (Phase 7) because partial features cannot be browser-tested in isolation.
 
 Read each report and check the **Result** line.
 
@@ -189,11 +283,11 @@ Update the phase entry in `stack.json`:
 }
 ```
 
-Continue to the next phase. After all phases complete, proceed to Phase 6.
+Continue to the next phase. After all phases complete, proceed to Phase 7.
 
 ---
 
-## Phase 6: Final Integration Pass
+## Phase 7: Final Integration Pass
 
 By this point every phase has passed qa-verifier, code-reviewer, and security-reviewer in isolation. The remaining check is end-to-end behavior across the integrated feature, which only manual-tester can do.
 
@@ -204,7 +298,7 @@ Spin up `manual-tester`. Pass:
 
 The agent writes `{docs_folder}/verification/manual-test-report.md`.
 
-- If **PASS**: proceed to Phase 7.
+- If **PASS**: proceed to Phase 8.
 - If **FAIL**: proceed to Step 2.
 
 ### Step 2: Remediation phase (only if manual-tester fails)
@@ -212,14 +306,14 @@ The agent writes `{docs_folder}/verification/manual-test-report.md`.
 When manual-tester finds issues that span phases (the kind of cross-phase integration bug that wouldn't show up in per-phase verification), create a remediation phase:
 
 1. Spin up `task-planner` in fix mode. Pass the failed manual-tester report and the docs folder path. It will append a new fix phase to `task-index.md`.
-2. Run the new phase through the **full Phase 5 loop** (initialize stack.json entry → engineer implements → per-phase verifiers → walkthrough-author).
+2. Run the new phase through the **full Phase 6 loop** (initialize stack.json entry → engineer implements → per-phase verifiers → walkthrough-author).
 3. Re-run manual-tester.
 
 Cap remediation at 2 attempts. If manual-tester still fails after that, surface all findings and stop.
 
 ---
 
-## Phase 7: Summary & Handoff
+## Phase 8: Summary & Handoff
 
 Read all artifacts produced during the pipeline and present a single comprehensive summary directly in the conversation.
 

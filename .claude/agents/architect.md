@@ -68,6 +68,25 @@ Write the architecture plan using this structure:
 
 [List from context.md, with a verdict per entry: respects | supersedes | informs | irrelevant]
 
+## Alternatives Considered
+
+Enumerate every meaningful technical fork in this plan with the option chosen, the alternative(s) rejected, and a one-sentence reason. This section is the surface a reviewer uses to push back on the plan **before implementation starts**. Do not omit forks just because the chosen option felt obvious to you — the engineer reviewing the plan does not have your context, and the rejected option is often the one they would have asked about.
+
+| Decision | Chosen | Rejected alternative(s) | Why |
+|----------|--------|--------------------------|-----|
+| [What the decision is about] | [The option being taken] | [What was considered and not taken] | [Concrete reason rooted in this codebase, this feature's constraints, or context.md] |
+
+Include at minimum, when applicable:
+
+- Library / framework choices that weren't already locked in by context.md
+- Module boundaries where you considered a different split (e.g. extend existing module vs. create new one)
+- Data-shape choices with alternatives (denormalize vs. join, polymorphic vs. typed unions, optional vs. required field)
+- When-to-do-it timing decisions (validate on change vs. blur, sync vs. async, eager vs. lazy, server-side vs. client-side)
+- Whether to refactor an adjacent surface as part of this slice or defer it
+- API / contract shape where more than one shape would have worked
+
+If a decision genuinely had no alternatives worth considering, omit it — but err toward inclusion. A row with a "rejected" cell that just says "no real alternative" is worse than omitting the row, so use judgment.
+
 ## Components
 
 ### [Component Name]

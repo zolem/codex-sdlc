@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FLY-266 · Implementation plan — phone number client-side validation</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --line-strong: #cbd5e1;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --accent: #2563eb;
+    --accent-soft: #eff6ff;
+    --good: #15803d;
+    --good-soft: #dcfce7;
+    --bad: #b91c1c;
+    --bad-soft: #fee2e2;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --code-bg: #0f172a;
+    --code-ink: #e2e8f0;
+    --add: #16a34a;
+    --del: #dc2626;
+  }
+  * { box-sizing: border-box }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 14.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    color: var(--ink); background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 0; }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+
+  aside.toc {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; overflow-y: auto;
+    padding: 28px 18px 28px 28px;
+    border-right: 1px solid var(--line);
+    background: #fff;
+  }
+  @media (max-width: 880px) { aside.toc { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); } }
+  aside h6 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+  aside a { display: block; padding: 4px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 13px; }
+  aside a:hover { background: var(--accent-soft); color: var(--accent); }
+  aside .badge {
+    display: inline-block; min-width: 22px; text-align: center;
+    color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+    margin-right: 6px;
+  }
+
+  main { max-width: 920px; padding: 28px 32px 96px; }
+  @media (max-width: 880px) { main { padding: 20px; } }
+
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 18px 28px;
+    padding: 14px 0; border-bottom: 1px solid var(--line);
+    font-size: 13px; color: var(--muted);
+  }
+  .meta-strip .item strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 2px; font-weight: 600; }
+  .meta-strip .item span { color: var(--ink); font-size: 14px; font-weight: 500; }
+
+  h1.title {
+    font-size: 26px; letter-spacing: -.01em; margin: 22px 0 6px;
+  }
+  .subtitle { color: var(--muted); font-size: 16px; max-width: 720px; margin: 0 0 22px; }
+
+  section.block { margin: 36px 0 0; }
+  section.block > .num {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted);
+    letter-spacing: .06em;
+  }
+  section.block > h2 {
+    font-size: 19px; margin: 2px 0 14px; letter-spacing: -.005em;
+  }
+  section.block > .lede { color: var(--muted); font-size: 14px; max-width: 720px; margin: -8px 0 14px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card + .card { margin-top: 12px; }
+
+  /* System diagram */
+  .diagram {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px;
+  }
+  .diagram.svg-frame { padding: 14px 16px; background: #fcfbf8; border-color: #e7e3da; }
+  .diagram.svg-frame svg { width: 100%; height: auto; display: block; }
+  .diagram h3 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    margin: 0 0 10px; color: var(--muted); font-weight: 600;
+  }
+  .diagram-grid { display: grid; gap: 14px; }
+  .flowchart {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: center;
+  }
+  @media (max-width: 720px) { .flowchart { grid-template-columns: 1fr; } }
+  .node {
+    background: #fff; border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 10px 12px; font-size: 12.5px; text-align: center;
+  }
+  .node.new { border-color: var(--accent); background: var(--accent-soft); }
+  .node.changed { border-color: var(--warn); background: var(--warn-soft); }
+  .node.removed { border-color: var(--bad); background: var(--bad-soft); text-decoration: line-through; color: var(--muted); }
+  .node small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .arrow {
+    text-align: center; color: var(--muted); font-size: 18px;
+  }
+  @media (max-width: 720px) { .arrow { transform: rotate(90deg); } }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; border: 1px solid var(--line-strong); }
+  .legend .sw.new     { background: var(--accent-soft); border-color: var(--accent); }
+  .legend .sw.changed { background: var(--warn-soft); border-color: var(--warn); }
+  .legend .sw.removed { background: var(--bad-soft); border-color: var(--bad); }
+  .legend .sw.same    { background: #fff; }
+
+  /* Decision table */
+  table.decisions, table.files, table.risks, table.phases {
+    width: 100%; border-collapse: collapse; font-size: 13.5px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  table th, table td { text-align: left; padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  table th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: #f8fafc; }
+  table tr:last-child td { border-bottom: 0; }
+  table code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  td.choice { color: var(--good); font-weight: 600; }
+  td.why { color: var(--muted); }
+  td.alt { color: var(--muted); }
+  td.alt s { color: var(--bad); text-decoration: line-through; opacity: .7; }
+
+  /* Phase strip */
+  .phases-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  @media (max-width: 720px) { .phases-bar { grid-template-columns: 1fr 1fr; } }
+  .ph {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-size: 13px; position: relative;
+  }
+  .ph .n { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); }
+  .ph h4 { margin: 4px 0 4px; font-size: 14px; }
+  .ph .dep { color: var(--muted); font-size: 11.5px; }
+  .ph::after {
+    content: "→"; position: absolute; right: -10px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 14px;
+  }
+  .ph:last-child::after { content: ""; }
+  @media (max-width: 720px) { .ph::after { content: ""; } }
+
+  table.phases td.tests { color: var(--muted); font-size: 12.5px; }
+  table.phases td .files { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink); }
+  table.phases td .files .add { color: var(--add); }
+  table.phases td .files .mod { color: var(--warn); }
+
+  /* Code */
+  pre.code {
+    margin: 0; background: var(--code-bg); color: var(--code-ink);
+    padding: 16px 18px; border-radius: 10px; overflow-x: auto;
+    font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre.code .k  { color: #c4b5fd; }
+  pre.code .s  { color: #86efac; }
+  pre.code .c  { color: #64748b; font-style: italic; }
+  pre.code .fn { color: #93c5fd; }
+  pre.code .ty { color: #fcd34d; }
+  pre.code .lit{ color: #f0abfc; }
+
+  /* Risks */
+  .sev { display: inline-block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+         padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .sev.high { background: var(--bad-soft); color: var(--bad); }
+  .sev.med  { background: var(--warn-soft); color: var(--warn); }
+  .sev.low  { background: #e0e7ff; color: #3730a3; }
+
+  /* Sign-off */
+  .signoff {
+    background: linear-gradient(180deg, #f1f5f9, #fff);
+    border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+  }
+  .signoff h3 { margin: 0 0 10px; font-size: 15px; }
+  .signoff label { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; cursor: pointer; font-size: 13.5px; }
+  .signoff label input { margin-top: 3px; accent-color: var(--accent); }
+  .signoff .progress {
+    height: 6px; border-radius: 999px; background: #e2e8f0; margin-top: 12px; overflow: hidden;
+  }
+  .signoff .progress .bar { height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+  .signoff .done {
+    margin-top: 10px; font-size: 13px; color: var(--good); display: none;
+  }
+  .signoff.complete .done { display: block; }
+  .signoff button {
+    margin-top: 12px; padding: 8px 14px; font: inherit; font-weight: 600;
+    background: var(--ink); color: #fff; border: 0; border-radius: 8px; cursor: pointer; opacity: .35;
+    transition: opacity .2s;
+  }
+  .signoff.complete button { opacity: 1; background: var(--good); }
+
+  /* File diff list */
+  .files-list .row {
+    display: grid; grid-template-columns: 80px 1fr 60px; gap: 12px;
+    padding: 8px 10px; border-bottom: 1px solid var(--line);
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+    align-items: center;
+  }
+  .files-list .row:last-child { border-bottom: 0; }
+  .files-list .action { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+  .files-list .action.add { color: var(--add); }
+  .files-list .action.mod { color: var(--warn); }
+  .files-list .path { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .files-list .lines { color: var(--muted); text-align: right; }
+
+  .open-q li { margin-bottom: 8px; font-size: 14px; }
+  .open-q li .ans { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
+  .open-q li .ans::before { content: "→ assumption: "; }
+
+  .footnote { color: var(--muted); font-size: 12px; margin-top: 30px; }
+  .footnote code { background: #fff; border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h6>Sections</h6>
+  <a href="#summary"><span class="badge">00</span>Summary</a>
+  <a href="#end-state"><span class="badge">01</span>End state</a>
+  <a href="#decisions"><span class="badge">02</span>Decisions &amp; alternatives</a>
+  <a href="#path"><span class="badge">03</span>Implementation path</a>
+  <a href="#contract"><span class="badge">04</span>Key contract</a>
+  <a href="#files"><span class="badge">05</span>Files touched</a>
+  <a href="#risks"><span class="badge">06</span>Risks &amp; open Qs</a>
+  <a href="#signoff"><span class="badge">07</span>Sign off</a>
+</aside>
+
+<main>
+  <div class="meta-strip">
+    <div class="item"><strong>Ticket</strong><span>FLY-266</span></div>
+    <div class="item"><strong>Effort</strong><span>~2 days · 4 PRs</span></div>
+    <div class="item"><strong>Surfaces</strong><span>onboarding · profile completion</span></div>
+    <div class="item"><strong>New files</strong><span>2</span></div>
+    <div class="item"><strong>Modified</strong><span>3</span></div>
+    <div class="item"><strong>Tests</strong><span>10 unit · 5 integ · 3 E2E</span></div>
+    <div class="item"><strong>API contract</strong><span>additive · client-only this slice</span></div>
+  </div>
+
+  <h1 class="title" id="summary">Phone-number client-side validation (US, SMS consent)</h1>
+  <p class="subtitle">
+    Add a shared Zod schema that strips formatting, validates US digits, and stores
+    <code>+1XXXXXXXXXX</code>. Wire it into the existing <code>StepPhone</code> with
+    real-time errors. No server change this slice; the client output matches the
+    future HubSpot-oriented contract so backend can land independently.
+  </p>
+
+  <!-- 01 End state -->
+  <section class="block" id="end-state">
+    <div class="num">01</div>
+    <h2>Data flow</h2>
+    <p class="lede">
+      Solid path is the save-and-submit flow on Continue. Dashed clay is derived UI state —
+      live error display and the Continue-button gate. The Zustand store is the single
+      source of truth and only ever holds <code>+1XXXXXXXXXX</code> once the input is valid.
+    </p>
+
+    <div class="diagram svg-frame">
+      <svg viewBox="0 0 1240 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Phone validation data flow diagram">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/>
+          </marker>
+          <marker id="arr-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+          </marker>
+        </defs>
+
+        <!-- TOP ROW: save path -->
+        <!-- User input -->
+        <g>
+          <rect x="40" y="80" width="140" height="68" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <text x="110" y="110" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">User input</text>
+          <text x="110" y="130" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">raw text</text>
+        </g>
+
+        <!-- us-sms-phone.schema (NEW) -->
+        <g>
+          <rect x="220" y="68" width="220" height="92" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <rect x="220" y="68" width="220" height="92" rx="12" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="0" opacity=".55"/>
+          <text x="330" y="98" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">us-sms-phone.schema</text>
+          <text x="330" y="118" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">zod · preprocess</text>
+          <text x="330" y="134" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">superRefine + transform</text>
+          <g transform="translate(395, 76)">
+            <rect width="38" height="16" rx="8" fill="#2563eb"/>
+            <text x="19" y="12" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" letter-spacing=".05em">NEW</text>
+          </g>
+        </g>
+
+        <!-- StepPhone -->
+        <g>
+          <rect x="480" y="80" width="160" height="68" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <text x="560" y="110" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">StepPhone</text>
+          <text x="560" y="130" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">React · safeParse</text>
+        </g>
+
+        <!-- Zustand store (dark) -->
+        <g>
+          <rect x="680" y="68" width="220" height="92" rx="12" fill="#0f172a" stroke="#0f172a"/>
+          <text x="790" y="98" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">Zustand store</text>
+          <text x="790" y="118" text-anchor="middle" font-size="11.5" fill="#94a3b8" font-family="ui-monospace, Menlo, monospace">phoneNumber:</text>
+          <text x="790" y="134" text-anchor="middle" font-size="11.5" fill="#94a3b8" font-family="ui-monospace, Menlo, monospace">+1XXXXXXXXXX</text>
+        </g>
+
+        <!-- onboarding-flow -->
+        <g>
+          <rect x="940" y="80" width="170" height="68" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <text x="1025" y="110" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">onboarding-flow</text>
+          <text x="1025" y="130" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">save handler</text>
+        </g>
+
+        <!-- server -->
+        <g>
+          <rect x="1140" y="68" width="80" height="92" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <text x="1180" y="98" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">updateMe</text>
+          <text x="1180" y="116" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">recordPhone</text>
+          <text x="1180" y="132" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">Consent</text>
+          <text x="1180" y="150" text-anchor="middle" font-size="10.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">unchanged</text>
+        </g>
+
+        <!-- BOTTOM ROW: derived state -->
+        <!-- phoneError -->
+        <g>
+          <rect x="220" y="280" width="220" height="68" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <text x="330" y="310" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">phoneError</text>
+          <text x="330" y="330" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">inline · aria-describedby</text>
+        </g>
+
+        <!-- isSmsPhoneStepComplete (NEW helper) -->
+        <g>
+          <rect x="680" y="280" width="220" height="68" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <rect x="680" y="280" width="220" height="68" rx="12" fill="none" stroke="#2563eb" stroke-width="2" opacity=".55"/>
+          <text x="790" y="310" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0f172a">isSmsPhoneStepComplete</text>
+          <text x="790" y="330" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">shared selector</text>
+          <g transform="translate(855, 288)">
+            <rect width="38" height="16" rx="8" fill="#2563eb"/>
+            <text x="19" y="12" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" letter-spacing=".05em">NEW</text>
+          </g>
+        </g>
+
+        <!-- Continue button -->
+        <g>
+          <rect x="480" y="280" width="160" height="68" rx="12" fill="#fafafa" stroke="#d1d5db" stroke-width="1.5"/>
+          <text x="560" y="310" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Continue</text>
+          <text x="560" y="330" text-anchor="middle" font-size="11.5" fill="#64748b" font-family="ui-monospace, Menlo, monospace">StepNavigation</text>
+        </g>
+
+        <!-- ====== SOLID ARROWS (save path) ====== -->
+        <!-- User → schema -->
+        <line x1="180" y1="114" x2="216" y2="114" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="198" y="104" text-anchor="middle" font-size="11" fill="#64748b">types</text>
+
+        <!-- schema → StepPhone -->
+        <line x1="440" y1="114" x2="476" y2="114" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="458" y="104" text-anchor="middle" font-size="11" fill="#64748b">result</text>
+
+        <!-- StepPhone → Zustand -->
+        <line x1="640" y1="114" x2="676" y2="114" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="658" y="104" text-anchor="middle" font-size="11" fill="#64748b">E.164</text>
+
+        <!-- Zustand → onboarding-flow -->
+        <line x1="900" y1="114" x2="936" y2="114" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="918" y="104" text-anchor="middle" font-size="11" fill="#64748b">read</text>
+
+        <!-- onboarding-flow → server -->
+        <line x1="1110" y1="114" x2="1136" y2="114" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="1123" y="104" text-anchor="middle" font-size="11" fill="#64748b">submit</text>
+
+        <!-- ====== DASHED CLAY ARROWS (derived state) ====== -->
+        <!-- schema → phoneError -->
+        <path d="M 330,160 C 330,210 330,250 330,276" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="5,4" fill="none" marker-end="url(#arr-clay)"/>
+        <text x="345" y="220" font-size="11" fill="#ea580c">invalid</text>
+
+        <!-- Zustand → helper -->
+        <path d="M 790,160 C 790,210 790,250 790,276" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="5,4" fill="none" marker-end="url(#arr-clay)"/>
+        <text x="805" y="220" font-size="11" fill="#ea580c">read</text>
+
+        <!-- helper → Continue (right to left) -->
+        <line x1="676" y1="314" x2="644" y2="314" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arr-clay)"/>
+        <text x="660" y="304" text-anchor="middle" font-size="11" fill="#ea580c">gates</text>
+
+        <!-- StepPhone → Continue (mounts it; very short hop) -->
+        <path d="M 560,148 C 560,200 560,250 560,276" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="5,4" fill="none" marker-end="url(#arr-clay)"/>
+        <text x="575" y="220" font-size="11" fill="#ea580c">renders</text>
+
+        <!-- caption -->
+        <text x="40" y="390" font-size="12" fill="#64748b">
+          Solid = save path on Continue. Dashed clay = derived UI state; nothing on the save path waits on it.
+          Server contract is unchanged this slice — it just receives the cleaner string.
+        </text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 02 Decisions -->
+  <section class="block" id="decisions">
+    <div class="num">02</div>
+    <h2>Decisions and the alternatives the architect rejected</h2>
+    <p class="lede">Each row is a fork in the road. The "Considered" column is the alternative we are <em>not</em> taking — call it out if you disagree before phase 1 starts.</p>
+
+    <table class="decisions">
+      <thead>
+        <tr>
+          <th style="width:22%">Decision</th>
+          <th style="width:24%">Chosen</th>
+          <th style="width:24%">Considered</th>
+          <th>Why we chose it</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Validation library</td>
+          <td class="choice">Zod-only digit rules</td>
+          <td class="alt"><s>google-libphonenumber</s></td>
+          <td class="why">Already in use across the app for forms. Library used by 2FA but never wired to onboarding. Keeps bundle smaller and matches the team's existing pattern.</td>
+        </tr>
+        <tr>
+          <td>StepPhone form architecture</td>
+          <td class="choice">Keep Zustand + local <code>safeParse</code> + <code>phoneError</code> state</td>
+          <td class="alt"><s>Refactor to <code>useForm</code> / <code>ValidatedForm</code></s></td>
+          <td class="why">Onboarding is fully Zustand-driven. Introducing RHF for one field expands the diff and risks UX drift across steps. Same inline error UX is achievable without it.</td>
+        </tr>
+        <tr>
+          <td>When to normalize the stored value</td>
+          <td class="choice">Normalize when parse succeeds (on change)</td>
+          <td class="alt"><s>Keep raw in store, normalize on blur only</s></td>
+          <td class="why">Requirements lean toward "stored value is E.164 when accepted." On-change normalization keeps the store invariant tight; blur-only adds a window where store ≠ contract.</td>
+        </tr>
+        <tr>
+          <td>Whitespace-only input</td>
+          <td class="choice">Treat as empty (no error)</td>
+          <td class="alt"><s>Treat as invalid</s></td>
+          <td class="why">Optional field semantics. Product owner has not yet ruled — assumption documented; flip is one-line if they decide otherwise.</td>
+        </tr>
+        <tr>
+          <td>Schema composition</td>
+          <td class="choice"><code>z.preprocess</code> + <code>superRefine</code></td>
+          <td class="alt"><s>Plain <code>regex</code></s> · <s><code>z.union</code> of variants</s></td>
+          <td class="why">Preprocess gives us the strip + normalize transform; <code>superRefine</code> lets us emit distinct user-facing messages (non-numeric vs too short vs invalid).</td>
+        </tr>
+        <tr>
+          <td>Server validation</td>
+          <td class="choice">Out of scope this slice</td>
+          <td class="alt"><s>Tighten <code>recordPhoneConsent</code> input now</s></td>
+          <td class="why">Backend → HubSpot integration ships separately. Tightening now risks rejecting legacy records mid-flight. Client emits the contract early so server can adopt safely later.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 03 Path -->
+  <section class="block" id="path">
+    <div class="num">03</div>
+    <h2>How we'll get there — 4 sequential phases</h2>
+    <p class="lede">Each phase is a single reviewable PR. Strictly sequential because every later phase depends on the schema shape locked in phase 1.</p>
+
+    <div class="phases-bar">
+      <div class="ph"><div class="n">Phase 1 · Foundation</div><h4>Shared schema + tests</h4><div class="dep">deps: none</div></div>
+      <div class="ph"><div class="n">Phase 2 · UI</div><h4>StepPhone wiring</h4><div class="dep">deps: phase 1</div></div>
+      <div class="ph"><div class="n">Phase 3 · Save path</div><h4>onboarding-flow + flow-config</h4><div class="dep">deps: phase 2</div></div>
+      <div class="ph"><div class="n">Phase 4 · Coverage</div><h4>Integration + UI tests</h4><div class="dep">deps: phase 3</div></div>
+    </div>
+
+    <table class="phases">
+      <thead>
+        <tr>
+          <th style="width:9%">Phase</th>
+          <th style="width:38%">Deliverable</th>
+          <th style="width:28%">Files</th>
+          <th>Tests this phase adds</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1</strong></td>
+          <td>Zod schema, normalization pipeline, optional-empty semantics, <code>+1</code> dedup, leading-1 handling. No React.</td>
+          <td class="files">
+            <div><span class="add">+</span> apps/web/src/utils/phone/us-sms-phone.schema.ts</div>
+            <div><span class="add">+</span> us-sms-phone.schema.test.ts</div>
+          </td>
+          <td class="tests">TC-001, 003, 004, 005, 006, 007, 009, 010, 011, 012, 017 — 11 unit cases</td>
+        </tr>
+        <tr>
+          <td><strong>2</strong></td>
+          <td>Real-time validation in <code>StepPhone</code>; <code>safeParse</code> on change; inline error with <code>aria-describedby</code>; store holds E.164 when valid; <code>Continue</code> gated by <code>isSmsPhoneStepComplete</code>.</td>
+          <td class="files">
+            <div><span class="mod">~</span> components/step-phone.tsx</div>
+            <div><span class="mod">~</span> us-sms-phone.schema.ts <span style="color:var(--muted)">(maybe)</span></div>
+          </td>
+          <td class="tests">TC-002, 014, 015 — 3 integration cases</td>
+        </tr>
+        <tr>
+          <td><strong>3</strong></td>
+          <td>Save path: <code>onboarding-flow.tsx</code> sends only E.164 when consent + phone present; align <code>flow-config</code> phone <code>validation</code> with the same helper.</td>
+          <td class="files">
+            <div><span class="mod">~</span> components/onboarding-flow.tsx</div>
+            <div><span class="mod">~</span> utils/flow-config.ts</div>
+          </td>
+          <td class="tests">No new tests; existing flow tests stay green</td>
+        </tr>
+        <tr>
+          <td><strong>4</strong></td>
+          <td>Extend UI / integration tests for error visibility, optional-empty submit, a11y. Optional E2E parity onboarding vs profile completion.</td>
+          <td class="files">
+            <div><span class="mod">~</span> __tests__/ui/app/welcome/onboarding.ui.test.tsx</div>
+          </td>
+          <td class="tests">TC-008, 013, 016 + NFR a11y &amp; PII spot-checks</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 04 Key contract -->
+  <section class="block" id="contract">
+    <div class="num">04</div>
+    <h2>The one piece of code worth reading in full</h2>
+    <p class="lede">Everything else is wiring. The schema below is the source of truth for the entire feature — sign off here is essentially sign off on the whole behavior.</p>
+
+    <pre class="code"><span class="c">// apps/web/src/utils/phone/us-sms-phone.schema.ts</span>
+<span class="k">import</span> { z } <span class="k">from</span> <span class="s">"zod"</span>;
+
+<span class="c">// Output shape when accepted: E.164 US, exactly +1 followed by 10 digits.</span>
+<span class="k">export type</span> <span class="ty">UsSmsPhone</span> = <span class="s">`+1${string}`</span>;
+
+<span class="k">const</span> <span class="fn">stripToDigits</span> = (s: <span class="ty">string</span>) =&gt; s.<span class="fn">replace</span>(<span class="lit">/\D/g</span>, <span class="s">""</span>);
+
+<span class="k">export const</span> <span class="fn">optionalUsSmsPhoneSchema</span> = z
+  .<span class="fn">string</span>()
+  .<span class="fn">optional</span>()
+  .<span class="fn">transform</span>((raw) =&gt; (raw ?? <span class="s">""</span>).<span class="fn">trim</span>())
+  .<span class="fn">superRefine</span>((trimmed, ctx) =&gt; {
+    <span class="k">if</span> (trimmed === <span class="s">""</span>) <span class="k">return</span>;            <span class="c">// optional empty: pass</span>
+    <span class="k">const</span> digits = <span class="fn">stripToDigits</span>(trimmed);
+    <span class="k">if</span> (digits.length === <span class="lit">0</span>)
+      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"Please enter a phone number."</span> });
+    <span class="k">else if</span> (digits.length &lt; <span class="lit">10</span>)
+      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"That number looks too short."</span> });
+    <span class="k">else if</span> (digits.length === <span class="lit">11</span> &amp;&amp; !digits.<span class="fn">startsWith</span>(<span class="s">"1"</span>))
+      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"We can't recognize that number."</span> });
+    <span class="k">else if</span> (digits.length &gt; <span class="lit">11</span>)
+      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"That number has too many digits."</span> });
+  })
+  .<span class="fn">transform</span>((trimmed): <span class="ty">UsSmsPhone</span> | <span class="ty">undefined</span> =&gt; {
+    <span class="k">if</span> (trimmed === <span class="s">""</span>) <span class="k">return</span> undefined;
+    <span class="k">const</span> digits = <span class="fn">stripToDigits</span>(trimmed);
+    <span class="k">return</span> (digits.length === <span class="lit">11</span> ? <span class="s">`+${digits}`</span> : <span class="s">`+1${digits}`</span>) <span class="k">as</span> <span class="ty">UsSmsPhone</span>;
+  });
+
+<span class="c">// Used by both Continue gating and onboarding-flow save path.</span>
+<span class="k">export const</span> <span class="fn">isSmsPhoneStepComplete</span> = (
+  phone: <span class="ty">string</span> | <span class="ty">undefined</span>,
+  consent: <span class="ty">boolean</span>,
+): <span class="ty">boolean</span> =&gt; {
+  <span class="k">if</span> (!consent) <span class="k">return</span> <span class="lit">false</span>;
+  <span class="k">const</span> result = optionalUsSmsPhoneSchema.<span class="fn">safeParse</span>(phone);
+  <span class="k">return</span> result.success &amp;&amp; <span class="k">typeof</span> result.data === <span class="s">"string"</span>;
+};</pre>
+  </section>
+
+  <!-- 05 Files -->
+  <section class="block" id="files">
+    <div class="num">05</div>
+    <h2>Files touched · what to expect at PR time</h2>
+    <p class="lede">Estimated line counts let you predict review load per phase. Every PR stays under ~150 lines.</p>
+
+    <div class="card files-list" style="padding: 4px 14px">
+      <div class="row">
+        <div class="action add">+ new</div>
+        <div class="path">apps/web/src/utils/phone/us-sms-phone.schema.ts</div>
+        <div class="lines">~60 lines</div>
+      </div>
+      <div class="row">
+        <div class="action add">+ new</div>
+        <div class="path">apps/web/src/utils/phone/us-sms-phone.schema.test.ts</div>
+        <div class="lines">~120 lines</div>
+      </div>
+      <div class="row">
+        <div class="action mod">~ edit</div>
+        <div class="path">…/onboarding/components/step-phone.tsx</div>
+        <div class="lines">+40 / −5</div>
+      </div>
+      <div class="row">
+        <div class="action mod">~ edit</div>
+        <div class="path">…/onboarding/components/onboarding-flow.tsx</div>
+        <div class="lines">+8 / −3</div>
+      </div>
+      <div class="row">
+        <div class="action mod">~ edit</div>
+        <div class="path">…/onboarding/utils/flow-config.ts</div>
+        <div class="lines">+4 / −1</div>
+      </div>
+      <div class="row">
+        <div class="action mod">~ edit</div>
+        <div class="path">apps/web/__tests__/ui/app/welcome/onboarding.ui.test.tsx</div>
+        <div class="lines">+50 / 0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 Risks -->
+  <section class="block" id="risks">
+    <div class="num">06</div>
+    <h2>Risks &amp; open questions</h2>
+
+    <table class="risks">
+      <thead>
+        <tr><th style="width: 80px">Severity</th><th>Risk</th><th>Mitigation</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="sev med">Med</span></td>
+          <td>Normalizing on every keystroke could feel jumpy as the user types.</td>
+          <td>Only rewrite store when parse succeeds; raw input remains in the controlled value during typing.</td>
+        </tr>
+        <tr>
+          <td><span class="sev med">Med</span></td>
+          <td>Drift between <code>Continue</code> enabled and <code>canGoNext()</code> in flow-config.</td>
+          <td>Single exported <code>isSmsPhoneStepComplete()</code> used by both, in phase 2 and 3.</td>
+        </tr>
+        <tr>
+          <td><span class="sev low">Low</span></td>
+          <td>Legacy prefill from <code>phoneConsents</code> may be non-E.164.</td>
+          <td>Run the schema on prefill; normalize silently on load if valid, surface error otherwise.</td>
+        </tr>
+        <tr>
+          <td><span class="sev low">Low</span></td>
+          <td>Two phone validation stacks in repo (Zod here, libphonenumber in 2FA) could diverge.</td>
+          <td>Document scope split in the schema file header. 2FA is product-distinct, not part of this slice.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card open-q" style="margin-top: 14px">
+      <h3 style="margin: 0 0 10px; font-size: 14px">Open questions blocking nothing — decide before phase 4</h3>
+      <ol>
+        <li>Whitespace-only — empty or invalid? <span class="ans">treat as empty</span></li>
+        <li>onChange vs onBlur — which UX matches comparable fields? <span class="ans">onChange, blur for parity if needed</span></li>
+        <li>International / extension support — in this slice or follow-up? <span class="ans">follow-up · US-only this slice</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 07 Sign off -->
+  <section class="block" id="signoff">
+    <div class="num">07</div>
+    <h2>Sign-off checklist</h2>
+    <p class="lede">Tick what you've validated. The button enables once every box is checked. Disagreements should land as a comment on the relevant section above before the engineer starts phase 1.</p>
+
+    <div class="signoff" id="signoff">
+      <h3>Before kicking off phase 1</h3>
+      <label><input type="checkbox" class="check"> The end-state data flow (§01) matches what I want the system to look like.</label>
+      <label><input type="checkbox" class="check"> Each decision in §02 — and each rejected alternative — is one I can live with.</label>
+      <label><input type="checkbox" class="check"> The phase order in §03 is reviewable; phase boundaries match how I'd want PRs split.</label>
+      <label><input type="checkbox" class="check"> The schema in §04 captures the behavior I want. The rest is wiring.</label>
+      <label><input type="checkbox" class="check"> File scope in §05 is the smallest reasonable change. No surprise files.</label>
+      <label><input type="checkbox" class="check"> Risks &amp; open questions in §06 are acceptable to proceed under documented assumptions.</label>
+      <div class="progress"><div class="bar" id="bar"></div></div>
+      <button id="go">Approve plan · start phase 1</button>
+      <div class="done">All checks confirmed. Hand back to orchestrator to kick off phase 1.</div>
+    </div>
+  </section>
+
+  <p class="footnote">
+    Sourced from <code>requirements.md</code>, <code>architecture.md</code>, <code>test-plan.md</code>, <code>task-index.md</code>, and <code>phases/phase-{1..4}.md</code> in <code>.orchestrate/fly-266/</code>. Prototype — design not final.
+  </p>
+</main>
+</div>
+
+<script>
+  const checks = document.querySelectorAll('.check');
+  const bar = document.getElementById('bar');
+  const signoff = document.getElementById('signoff');
+  function update() {
+    const n = [...checks].filter(c => c.checked).length;
+    const pct = (n / checks.length) * 100;
+    bar.style.width = pct + '%';
+    if (n === checks.length) signoff.classList.add('complete');
+    else signoff.classList.remove('complete');
+  }
+  checks.forEach(c => c.addEventListener('change', update));
+</script>
+</body>
+</html>
