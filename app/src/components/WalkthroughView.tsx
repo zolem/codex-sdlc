@@ -23,9 +23,10 @@ interface Props {
   runs: RunSummary[];
   slug: string;
   onSlugChange: (slug: string) => void;
+  externalRefreshKey?: number;
 }
 
-export function WalkthroughView({ repoPath, runs, slug, onSlugChange }: Props) {
+export function WalkthroughView({ repoPath, runs, slug, onSlugChange, externalRefreshKey = 0 }: Props) {
   const [stack, setStack] = useState<StackJson | null>(null);
   const [documents, setDocuments] = useState<string[]>([]);
   const [walkthroughs, setWalkthroughs] = useState<Map<number, WalkthroughDoc>>(new Map());
@@ -66,7 +67,7 @@ export function WalkthroughView({ repoPath, runs, slug, onSlugChange }: Props) {
         setWalkthroughs(walks);
       })
       .catch((e) => setError(String(e)));
-  }, [repoPath, slug, refreshKey]);
+  }, [repoPath, slug, refreshKey, externalRefreshKey]);
 
   const run: RunArtifacts | null = useMemo(() => {
     if (!stack) return null;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { getDocument } from '../hooks/useTauri';
+import { getDocument, onRunChanged } from '../hooks/useTauri';
 
 interface Props {
   repoPath: string;
@@ -13,6 +13,7 @@ interface Props {
 export function DocumentView({ repoPath, slug, docPath, title }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setContent(null);
@@ -20,7 +21,17 @@ export function DocumentView({ repoPath, slug, docPath, title }: Props) {
     getDocument(repoPath, slug, docPath)
       .then(setContent)
       .catch((e) => setError(String(e)));
-  }, [repoPath, slug, docPath]);
+  }, [repoPath, slug, docPath, reloadKey]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    onRunChanged((changedSlug) => {
+      if (changedSlug === slug) setReloadKey((k) => k + 1);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [slug]);
 
   return (
     <div className="document-view">

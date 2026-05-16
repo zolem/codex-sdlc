@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getMatches } from '@tauri-apps/plugin-cli';
 import { RunPicker } from './components/RunPicker';
 import { WalkthroughView } from './components/WalkthroughView';
-import { discoverRuns } from './hooks/useTauri';
+import { discoverRuns, onRunChanged, onRunsChanged, startWatch } from './hooks/useTauri';
 import { RunSummary } from './shared/types';
 
 export default function App() {
@@ -11,6 +11,7 @@ export default function App() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [runRefreshKey, setRunRefreshKey] = useState(0);
 
   useEffect(() => {
     async function init() {
@@ -33,6 +34,8 @@ export default function App() {
         } else if (discovered.length === 1) {
           setSelectedSlug(discovered[0].slug);
         }
+
+        await startWatch(rp);
       } catch (e) {
         setError(String(e));
       } finally {
@@ -41,6 +44,31 @@ export default function App() {
     }
     init();
   }, []);
+
+  useEffect(() => {
+    if (!repoPath) return;
+    let unlistenRuns: (() => void) | undefined;
+    let unlistenRun: (() => void) | undefined;
+
+    onRunsChanged(() => {
+      discoverRuns(repoPath).then(setRuns).catch(() => {});
+    }).then((fn) => {
+      unlistenRuns = fn;
+    });
+
+    onRunChanged((slug) => {
+      if (slug === selectedSlug) {
+        setRunRefreshKey((k) => k + 1);
+      }
+    }).then((fn) => {
+      unlistenRun = fn;
+    });
+
+    return () => {
+      unlistenRuns?.();
+      unlistenRun?.();
+    };
+  }, [repoPath, selectedSlug]);
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -91,6 +119,7 @@ export default function App() {
       runs={runs}
       slug={selectedSlug}
       onSlugChange={setSelectedSlug}
+      externalRefreshKey={runRefreshKey}
     />
   );
 }
