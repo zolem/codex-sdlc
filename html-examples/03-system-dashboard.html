@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Level Up Onboarding — at a glance</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --ink: #1a1d23;
+    --muted: #5b6470;
+    --line: #e5e7eb;
+    --bg: #fafafa;
+    --card: #ffffff;
+    --accent: #0ea5e9;
+    --accent-soft: #f0f9ff;
+    --good: #15803d;
+    --warn: #b45309;
+    --bad: #b91c1c;
+  }
+  * { box-sizing: border-box }
+  body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  header.hero {
+    background: linear-gradient(135deg, #f0f9ff 0%, #fafafa 100%);
+    border: 1px solid var(--line); border-radius: 14px; padding: 28px 32px; margin-bottom: 24px;
+  }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .tagline { color: var(--muted); font-size: 17px; max-width: 780px; }
+
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px;
+  }
+  @media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } }
+  .kpi {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  }
+  .kpi .n { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .kpi .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+  section { margin-top: 28px; }
+  h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; }
+
+  /* Levels grid */
+  .levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  @media (max-width: 980px) { .levels { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 540px) { .levels { grid-template-columns: 1fr; } }
+  .level {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 12px;
+    position: relative;
+  }
+  .level .badge {
+    position: absolute; top: -10px; left: 14px;
+    background: var(--accent); color: white;
+    font-size: 11px; padding: 3px 8px; border-radius: 999px; letter-spacing: .04em;
+  }
+  .level h3 { margin: 6px 0 6px; font-size: 15px; }
+  .level p.kicker { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .level ol { margin: 0; padding-left: 18px; font-size: 13px; }
+  .level li { margin-bottom: 4px; }
+  .level li .tag {
+    display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 4px;
+    background: #f1f5f9; color: var(--muted); margin-left: 4px;
+  }
+  .level li .tag.reuse { background: #fef3c7; color: #92400e; }
+  .level li .tag.manual { background: #fce7f3; color: #9d174d; }
+
+  /* Personas */
+  .personas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 980px) { .personas { grid-template-columns: 1fr 1fr; } }
+  .persona { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 13px; }
+  .persona h4 { margin: 0 0 4px; font-size: 14px; }
+  .persona .want { color: var(--muted); }
+
+  /* scope */
+  .scope { display: grid; gap: 0; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  @media (max-width: 760px) { .scope { grid-template-columns: 1fr; } }
+  .scope > div { padding: 16px 18px; background: var(--card); }
+  .scope .out { border-left: 1px solid var(--line); }
+  @media (max-width: 760px) { .scope .out { border-left: 0; border-top: 1px solid var(--line); } }
+  .scope h3 { margin: 0 0 10px; font-size: 14px; }
+  .scope .in  h3::before { content: "✓ "; color: var(--good); }
+  .scope .out h3::before { content: "✕ "; color: var(--bad); }
+  .scope ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  .scope li { margin-bottom: 4px; }
+
+  /* Flow */
+  .flow {
+    display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 6px 0;
+  }
+  .flow .node {
+    flex: 1; min-width: 140px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 13px;
+  }
+  .flow .node h4 { margin: 0 0 4px; font-size: 13px; color: var(--accent); }
+  .flow .arrow {
+    display: flex; align-items: center; padding: 0 6px; color: var(--muted); font-size: 18px;
+  }
+
+  /* risks */
+  .risks .row { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); align-items: start; }
+  .risks .row:last-child { border-bottom: 0; }
+  .sev { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 6px; text-align: center; font-weight: 600; }
+  .sev.high { background: #fee2e2; color: #991b1b; }
+  .sev.med  { background: #fef3c7; color: #92400e; }
+  .sev.low  { background: #e0e7ff; color: #3730a3; }
+
+  .twocol { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 760px) { .twocol { grid-template-columns: 1fr; } }
+
+  footer.meta { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }
+  footer.meta code { background: #fff; border: 1px solid var(--line); padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">SDLC artifact · Generated from PM + Architect + QA</div>
+  <h1>Level Up: a 15-step gamified onboarding for teachers</h1>
+  <p class="tagline">
+    Teachers — new sign-ups and existing users alike — get a "Level Up" tab in the sidebar,
+    a profile-header certification badge, and an accordion of 5 sequential levels with 3 steps
+    each. Steps launch existing beacon walkthroughs; completions persist per-step.
+    Ships behind a feature flag, off by default.
+  </p>
+  <div class="kpis">
+    <div class="kpi"><div class="n">5</div><div class="lbl">Levels</div></div>
+    <div class="kpi"><div class="n">15</div><div class="lbl">Guided steps</div></div>
+    <div class="kpi"><div class="n">5</div><div class="lbl">Personas</div></div>
+    <div class="kpi"><div class="n">1</div><div class="lbl">Feature flag</div></div>
+  </div>
+</header>
+
+<section>
+  <h2>The five levels (the whole journey)</h2>
+  <div class="levels">
+    <div class="level">
+      <span class="badge">Level 1</span>
+      <h3>Setup</h3>
+      <p class="kicker">First session orientation</p>
+      <ol>
+        <li>Finish your profile</li>
+        <li>Meet Spaces <span class="tag reuse">reuse</span></li>
+        <li>Try a Bellringer <span class="tag reuse">reuse</span></li>
+      </ol>
+    </div>
+    <div class="level">
+      <span class="badge">Level 2</span>
+      <h3>Teaching</h3>
+      <p class="kicker">Run things with your class</p>
+      <ol>
+        <li>Launch a Space</li>
+        <li>Remix a Space</li>
+        <li>Use a Tool</li>
+      </ol>
+    </div>
+    <div class="level">
+      <span class="badge">Level 3</span>
+      <h3>Creation</h3>
+      <p class="kicker">Make Spaces from scratch</p>
+      <ol>
+        <li>Build a Space</li>
+        <li>Share publicly</li>
+        <li>Add a custom prompt</li>
+      </ol>
+    </div>
+    <div class="level">
+      <span class="badge">Level 4</span>
+      <h3>Insights</h3>
+      <p class="kicker">Understand student work</p>
+      <ol>
+        <li>Check Mission Control</li>
+        <li>View a transcript</li>
+        <li>Group by Smart Groups</li>
+      </ol>
+    </div>
+    <div class="level">
+      <span class="badge">Level 5</span>
+      <h3>Community</h3>
+      <p class="kicker">Share with peers</p>
+      <ol>
+        <li>Invite a colleague</li>
+        <li>Share a Space</li>
+        <li>Attend a live training <span class="tag manual">manual</span></li>
+      </ol>
+    </div>
+  </div>
+  <p style="font-size:12px;color:var(--muted);margin-top:10px">
+    <span class="tag reuse" style="display:inline-block;font-size:10px;padding:1px 5px;border-radius:4px;background:#fef3c7;color:#92400e">reuse</span>
+    existing beacon walkthrough &nbsp;·&nbsp;
+    <span class="tag manual" style="display:inline-block;font-size:10px;padding:1px 5px;border-radius:4px;background:#fce7f3;color:#9d174d">manual</span>
+    no automatic completion — user marks done
+  </p>
+</section>
+
+<section>
+  <h2>The one path a user walks per step</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="node"><h4>1 · Visit</h4>Open <code>/level-up</code> from the sidebar (flag-gated nav item)</div>
+      <div class="arrow">›</div>
+      <div class="node"><h4>2 · Pick</h4>Active level is expanded; incomplete step shows <code>Start →</code></div>
+      <div class="arrow">›</div>
+      <div class="node"><h4>3 · Walk</h4>Existing beacon walkthrough launches; user does the real action</div>
+      <div class="arrow">›</div>
+      <div class="node"><h4>4 · Complete</h4><code>completeGuide</code> records a <code>UserGuideCompletion</code> row</div>
+      <div class="arrow">›</div>
+      <div class="node"><h4>5 · Unlock</h4>When all 3 steps in a level are done, next level expands; badge updates</div>
+    </div>
+  </div>
+</section>
+
+<section class="twocol">
+  <div>
+    <h2>Who this is for</h2>
+    <div class="personas" style="grid-template-columns: 1fr 1fr;">
+      <div class="persona"><h4>New Teacher Nadia</h4><div class="want">First session. Wants "what do I try next?"</div></div>
+      <div class="persona"><h4>Existing Teacher Eva</h4><div class="want">Misses Smart Groups, remix, prompts. Fine starting over.</div></div>
+      <div class="persona"><h4>Less-Technical Tom</h4><div class="want">Needs each step to work first try.</div></div>
+      <div class="persona"><h4>Power Teacher Priya</h4><div class="want">Wants to fly through and invite peers.</div></div>
+      <div class="persona" style="grid-column: span 2;"><h4>Product / Growth team</h4><div class="want">Safe flag-gated rollout. Qualitative feedback only this phase — analytics deferred.</div></div>
+    </div>
+  </div>
+
+  <div>
+    <h2>Scope</h2>
+    <div class="scope">
+      <div class="in">
+        <h3>In</h3>
+        <ul>
+          <li>Sidebar nav item + <code>/level-up</code> route, flag-gated</li>
+          <li>Profile header with certification badge</li>
+          <li>5-level accordion, sequential unlock</li>
+          <li>Reuse Bellringer + Spaces intro for L1S2, L1S3</li>
+          <li>15 new guide names registered</li>
+          <li>L5S3 uses a manual "mark as done"</li>
+          <li>Localized strings via <code>/en/translation.ts</code></li>
+        </ul>
+      </div>
+      <div class="out">
+        <h3>Not in this release</h3>
+        <ul>
+          <li>Certificate generation / download</li>
+          <li>Auto-detection of prior feature usage</li>
+          <li>Celebration animations on level complete</li>
+          <li>Analytics events</li>
+          <li>Non-teacher roles (students, admins)</li>
+          <li>Skipping or reordering levels</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="twocol">
+  <div>
+    <h2>Risks we're tracking</h2>
+    <div class="card risks">
+      <div class="row">
+        <div class="sev high">High</div>
+        <div>
+          <strong>L5S3 "Attend a live training" has no clean completion trigger.</strong>
+          <div style="color:var(--muted);font-size:13px">Plan: manual "mark as done" button. Webhook-driven detection is a possible follow-up.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="sev med">Med</div>
+        <div>
+          <strong>Reused guides also record their own completions under different names.</strong>
+          <div style="color:var(--muted);font-size:13px">Decision needed: wire a Level Up–scoped completion in parallel, or share names?</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="sev med">Med</div>
+        <div>
+          <strong>Existing users with deep feature usage start at Level 1.</strong>
+          <div style="color:var(--muted);font-size:13px">Intentional for v1 simplicity. May feel patronizing — qualitative feedback will tell.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="sev low">Low</div>
+        <div>
+          <strong>tRPC shape compatibility with older extension bundles.</strong>
+          <div style="color:var(--muted);font-size:13px">Constraint: additive-only changes to <code>guideCompletions.*</code>.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <h2>Open questions for product/design</h2>
+    <div class="card">
+      <ol style="margin:0;padding-left:18px">
+        <li>Compact accordion view, expanded card view, or both?</li>
+        <li>Exact completion mechanism for "attend a live training"?</li>
+        <li>Which existing guides reuse vs. rebuild for L1S2 + L1S3?</li>
+        <li>Does completing the Bellringer outside Level Up also mark L1S3 done?</li>
+        <li>Profile-header copy for the pre-L1 state?</li>
+        <li>Re-launch completed steps in v1, or defer?</li>
+        <li>"Skip onboarding" affordance — needed or not?</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>How we'll know it works</h2>
+  <div class="card">
+    <p style="margin-top:0">
+      Test plan covers the 24 user stories across unit (state derivation, level/step
+      logic), integration (tRPC wiring, flag gating, completion mutations), and end-to-end
+      (full guided walkthrough per step, persistence across sessions). Non-functional checks
+      include keyboard navigation, ARIA state announcements on locked/active/complete, and
+      bundle-boundary compatibility for older extensions.
+    </p>
+  </div>
+</section>
+
+<footer class="meta">
+  Sourced from <code>requirements.md</code>, <code>architecture.md</code>, <code>test-plan.md</code> in
+  <code>.orchestrate/level-up-onboarding/</code>. Prototype — design not final.
+</footer>
+
+</div>
+</body>
+</html>
