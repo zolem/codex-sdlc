@@ -1,0 +1,1544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phase 2 walkthrough · Phone validation wiring</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #faf7f0;
+    --paper: #fdfaf3;
+    --ink: #1c1a17;
+    --muted: #6a655d;
+    --faint: #97918a;
+    --line: #e5dfd1;
+    --line-soft: #efe9da;
+    --clay: #c8501e;
+    --clay-soft: #f5e6d9;
+    --clay-faint: #faeede;
+    --dark: #1c1a17;
+    --code-bg: #f3eddf;
+    --good: #4f7a3a;
+    --bad:  #a8421b;
+    --warn: #a0691c;
+    --discuss: #4b5d8c;
+  }
+  * { box-sizing: border-box }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .serif {
+    font-family: "Iowan Old Style", "Charter", "Source Serif Pro", "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-feature-settings: "ss01", "liga";
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  .doc { max-width: 1120px; margin: 0 auto; padding: 0 40px 120px; }
+  @media (max-width: 640px) { .doc { padding: 0 22px 80px; } }
+  .measure { max-width: 680px; }
+
+  /* ─── Sticky header strip ─── */
+  header.chrome {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(250, 247, 240, .96);
+    backdrop-filter: saturate(150%) blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .chrome-inner {
+    max-width: 1120px; margin: 0 auto; padding: 16px 40px 0;
+  }
+  @media (max-width: 640px) { .chrome-inner { padding: 14px 22px 0; } }
+
+  .eyebrow {
+    font-size: 12.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  .eyebrow .sep { color: var(--faint); margin: 0 8px; }
+  .eyebrow a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+  .chrome-row {
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+    padding-bottom: 12px;
+  }
+  .chrome-row h1 {
+    font-family: "Iowan Old Style", Charter, Georgia, serif;
+    font-weight: 600; font-size: 24px; line-height: 1.2; margin: 0;
+    letter-spacing: -.008em;
+  }
+  .chrome-row .verif {
+    display: flex; gap: 14px; align-items: baseline; margin-left: auto;
+    font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .chrome-row .verif b { font-weight: 700; }
+  .chrome-row .verif .pass { color: var(--good); }
+  .chrome-row .verif .fail { color: var(--bad); }
+
+  /* Progress + order toggle row */
+  .chrome-controls {
+    display: flex; align-items: center; gap: 14px;
+    padding: 6px 0 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .progress {
+    flex: 1; height: 6px; background: var(--line-soft);
+    border-radius: 99px; overflow: hidden; max-width: 320px;
+  }
+  .progress .bar { height: 100%; background: var(--good); width: 0%; transition: width .25s; }
+  .progress-label {
+    font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  }
+  .order-toggle {
+    margin-left: auto;
+    font-family: -apple-system, Inter, sans-serif;
+    font-size: 12px; letter-spacing: .04em;
+    background: transparent; border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px;
+    color: var(--muted); cursor: pointer;
+  }
+  .order-toggle[aria-pressed="true"] { background: var(--clay-faint); color: var(--clay); border-color: var(--clay); }
+  .order-toggle:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+
+  /* ─── Stops bar ─── */
+  .stops-bar {
+    display: flex; gap: 8px; overflow-x: auto;
+    padding: 14px 0 16px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .stops-bar .chip {
+    flex: none;
+    display: flex; flex-direction: column; gap: 2px;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px;
+    font-family: -apple-system, Inter, sans-serif; font-size: 12.5px;
+    color: var(--muted); cursor: pointer; text-align: left;
+    min-width: 132px;
+  }
+  .stops-bar .chip .n {
+    font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+  }
+  .stops-bar .chip .t { color: var(--ink); line-height: 1.3; }
+  .stops-bar .chip[aria-current="true"] { border-color: var(--clay); background: var(--clay-faint); }
+  .stops-bar .chip[data-decision="approve"]         { border-color: var(--good); }
+  .stops-bar .chip[data-decision="request-changes"] { border-color: var(--bad);  }
+  .stops-bar .chip[data-decision="needs-discussion"]{ border-color: var(--discuss); }
+  .stops-bar .chip .dot {
+    width: 7px; height: 7px; border-radius: 99px; background: var(--line); display: inline-block; margin-right: 6px;
+  }
+  .stops-bar .chip[data-decision="approve"]         .dot { background: var(--good); }
+  .stops-bar .chip[data-decision="request-changes"] .dot { background: var(--bad);  }
+  .stops-bar .chip[data-decision="needs-discussion"].chip .dot { background: var(--discuss); }
+  .stops-bar .chip.trouble .n::before {
+    content: "▲ "; color: var(--warn);
+  }
+  .stops-bar .chip.synthesis { border-style: dashed; }
+
+  /* ─── Stop pages ─── */
+  main { padding-top: 44px; }
+  section.stop { display: none; margin: 0 0 56px; }
+  body.no-js section.stop { display: block; }
+  section.stop.is-active { display: block; }
+
+  .stop-head { margin-bottom: 18px; }
+  .stop-head .label {
+    font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .stop-head h2 {
+    font-family: "Iowan Old Style", Charter, Georgia, serif;
+    font-weight: 600; font-size: 36px; line-height: 1.15; margin: 0 0 8px;
+    letter-spacing: -.012em;
+  }
+  @media (max-width: 640px) { .stop-head h2 { font-size: 26px; } }
+  .stop-head .meta {
+    font-family: ui-monospace, SF Mono, Menlo, monospace;
+    font-size: 13px; color: var(--muted); margin-top: 4px;
+  }
+  .stop-head .meta a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Two-column inside each stop: main + sticky cumulative aside */
+  .stop-grid {
+    display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 36px;
+  }
+  @media (max-width: 920px) { .stop-grid { grid-template-columns: 1fr; gap: 22px; } }
+
+  /* Intent header card */
+  .intent {
+    background: var(--paper); border: 1px solid var(--line);
+    border-left: 3px solid var(--clay);
+    border-radius: 10px; padding: 16px 18px; margin: 0 0 22px;
+  }
+  .intent .row { display: grid; grid-template-columns: 84px 1fr; gap: 12px; padding: 4px 0; }
+  .intent .k {
+    font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+    padding-top: 2px;
+  }
+  .intent .v { font-size: 15.5px; line-height: 1.5; }
+  .intent .v.serif { font-style: italic; }
+
+  /* Generic block — used for §-style sections within a stop */
+  .block {
+    margin: 0 0 28px;
+  }
+  .block .head {
+    display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px;
+  }
+  .block .num {
+    font-family: ui-monospace, SF Mono, Menlo, monospace;
+    font-size: 11px; color: var(--muted); background: var(--clay-soft);
+    border-radius: 5px; padding: 2px 7px 3px; letter-spacing: .04em;
+  }
+  .block h3 {
+    font-family: "Iowan Old Style", Charter, Georgia, serif;
+    font-weight: 600; font-size: 18px; margin: 0; letter-spacing: -.003em;
+  }
+  .block p { margin: 0 0 10px; font-size: 15px; line-height: 1.6; max-width: 640px; }
+  .block ul { margin: 0 0 10px; padding-left: 22px; }
+  .block ul li { margin-bottom: 6px; line-height: 1.55; font-size: 15px; }
+  .block code, .block li code, .block p code {
+    background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, SF Mono, Menlo, monospace; font-size: 13.5px;
+  }
+
+  /* Scope-check flag */
+  .scope {
+    display: inline-flex; align-items: baseline; gap: 8px;
+    font-size: 13px; padding: 5px 11px; border-radius: 99px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .scope.ok      { border-color: var(--good); color: var(--good); }
+  .scope.drift   { border-color: var(--warn); color: var(--warn); }
+  .scope b { font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+  .scope-detail { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .scope-detail code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+
+  /* Risk badges */
+  .risks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .risk {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+    padding: 4px 9px; border-radius: 5px; border: 1px solid currentColor;
+  }
+  .risk.auth          { color: var(--bad); }
+  .risk.payments      { color: var(--bad); }
+  .risk.deletion      { color: var(--bad); }
+  .risk.migration     { color: var(--warn); }
+  .risk.contract      { color: var(--warn); }
+  .risk.untrusted     { color: var(--warn); }
+  .risk.none          { color: var(--muted); border-style: dashed; }
+
+  /* Diagram frame — reused from 05 */
+  .diagram-frame {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 18px 14px;
+    margin: 4px 0 12px;
+  }
+  .diagram-frame svg { width: 100%; height: auto; display: block; }
+  .diagram-caption {
+    font-size: 13px; color: var(--muted); margin-top: 8px;
+    font-style: italic;
+  }
+  .diagram-caption .clay { color: var(--clay); font-style: normal; }
+  .illustrative {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--faint); display: inline-block; margin-left: 8px;
+  }
+
+  /* Code block — match 05 */
+  pre.code {
+    background: var(--code-bg);
+    color: var(--ink);
+    padding: 16px 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font: 12.5px/1.6 ui-monospace, SF Mono, Menlo, Consolas, monospace;
+    margin: 6px 0 10px;
+  }
+  pre.code .k  { color: #6b3a8a; }
+  pre.code .s  { color: #4a6c2b; }
+  pre.code .c  { color: #8d877a; font-style: italic; }
+  pre.code .fn { color: #1c3d6e; }
+  pre.code .ty { color: #7a4e1c; }
+  pre.code .lit{ color: #8a3a6e; }
+
+  /* Counts table */
+  .count-row {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px;
+    align-items: baseline; padding: 6px 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 14.5px;
+  }
+  .count-row:last-child { border-bottom: 0; }
+  .count-row .n {
+    font-family: ui-monospace, SF Mono, Menlo, monospace;
+    font-size: 13px; color: var(--ink); font-weight: 600;
+    min-width: 48px;
+  }
+  .count-row .n.zero { color: var(--good); }
+  .count-row .n.warn { color: var(--warn); }
+  .count-row .n.bad  { color: var(--bad);  }
+  .count-row .lbl { color: var(--muted); }
+  .count-row .loc { color: var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+
+  /* Uncertainty callout */
+  .uncert {
+    background: var(--paper);
+    border-left: 3px solid var(--warn);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-family: "Iowan Old Style", Charter, Georgia, serif;
+    font-style: italic; font-size: 15px; color: #3b3833;
+    line-height: 1.55;
+  }
+  .uncert::before {
+    content: "Uncertainty — ";
+    font-family: -apple-system, Inter, sans-serif;
+    font-style: normal; font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--warn);
+  }
+
+  /* Cumulative context aside */
+  aside.cumulative {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px;
+    align-self: start; position: sticky; top: 168px;
+    font-size: 14px; line-height: 1.55;
+  }
+  @media (max-width: 920px) { aside.cumulative { position: static; } }
+  aside.cumulative h4 {
+    margin: 0 0 8px;
+    font-family: -apple-system, Inter, sans-serif;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  aside.cumulative ul { margin: 0; padding-left: 18px; }
+  aside.cumulative li { margin-bottom: 6px; }
+  aside.cumulative .empty { color: var(--faint); font-style: italic; }
+
+  /* Decision buttons */
+  .decision {
+    margin-top: 12px;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .decision .lbl {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    font-weight: 700;
+  }
+  .decision .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .decision button {
+    flex: 1; min-width: 110px;
+    background: transparent; border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px;
+    font-family: -apple-system, Inter, sans-serif; font-size: 13px;
+    color: var(--ink); cursor: pointer;
+    text-align: left;
+  }
+  .decision button:hover { border-color: var(--ink); }
+  .decision button[aria-pressed="true"][data-decision="approve"] {
+    background: var(--good); color: #fdfaf3; border-color: var(--good);
+  }
+  .decision button[aria-pressed="true"][data-decision="request-changes"] {
+    background: var(--bad); color: #fdfaf3; border-color: var(--bad);
+  }
+  .decision button[aria-pressed="true"][data-decision="needs-discussion"] {
+    background: var(--discuss); color: #fdfaf3; border-color: var(--discuss);
+  }
+  .decision .clear {
+    align-self: flex-start;
+    background: transparent; border: 0; padding: 0;
+    font-size: 12px; color: var(--muted); text-decoration: underline;
+    cursor: pointer;
+  }
+
+  /* Prev / next */
+  .pager {
+    display: flex; justify-content: space-between; gap: 12px;
+    margin: 36px 0 0; padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  .pager a, .pager button {
+    background: transparent; border: 1px solid var(--line);
+    border-radius: 6px; padding: 10px 14px;
+    font-family: -apple-system, Inter, sans-serif; font-size: 14px;
+    color: var(--ink); cursor: pointer; text-decoration: none;
+    line-height: 1.3;
+  }
+  .pager a:hover, .pager button:hover { border-color: var(--ink); }
+  .pager .lbl {
+    display: block; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2px;
+  }
+  .pager button[disabled] { opacity: .4; cursor: default; }
+
+  /* Synthesis page */
+  section.stop.synthesis .stop-head h2 { color: var(--clay); }
+  .synthesis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 800px) { .synthesis-grid { grid-template-columns: 1fr; } }
+  .synthesis-card {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .synthesis-card h4 {
+    margin: 0 0 8px;
+    font-family: "Iowan Old Style", Charter, Georgia, serif;
+    font-size: 16px; font-weight: 600;
+  }
+  .synthesis-card .empty { font-style: italic; color: var(--good); font-size: 14px; }
+  .synthesis-card .finding {
+    font-size: 14px; line-height: 1.55; padding: 6px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .synthesis-card .finding:last-child { border-bottom: 0; }
+  .synthesis-card .finding code {
+    background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+  }
+
+  footer.colophon {
+    margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--muted); line-height: 1.55;
+  }
+  footer.colophon code { background: transparent; padding: 0; }
+
+  /* ─── View tabs (Review / Diff walkthrough) ─── */
+  .view-tabs {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 8px; margin: 0 0 24px;
+  }
+  .view-tabs button {
+    background: transparent; border: 0;
+    font-family: -apple-system, Inter, sans-serif;
+    font-size: 12.5px; letter-spacing: .02em;
+    color: var(--muted); cursor: pointer;
+    padding: 6px 12px; border-radius: 5px;
+  }
+  .view-tabs button[aria-selected="true"] {
+    background: var(--clay); color: var(--paper); font-weight: 600;
+  }
+  .view-tabs button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  body.no-js .view-tabs { display: none; }
+  body.no-js .view-diff { display: block; }
+  body.no-js .view-diff::before {
+    content: "Diff walkthrough"; display: block;
+    font-family: "Iowan Old Style", Charter, Georgia, serif; font-weight: 600;
+    font-size: 20px; margin: 24px 0 12px;
+  }
+
+  /* Diff walkthrough hunks */
+  .hunk {
+    margin: 0 0 24px; padding: 0 0 20px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .hunk:last-child { border-bottom: 0; }
+  .hunk-head {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    margin: 0 0 6px;
+  }
+  .hunk-head .hunk-path {
+    font-family: ui-monospace, SF Mono, Menlo, monospace;
+    font-size: 12px; color: var(--muted);
+    background: var(--clay-soft); padding: 2px 7px 3px; border-radius: 5px;
+  }
+  .hunk-head h4 {
+    font-family: "Iowan Old Style", Charter, Georgia, serif;
+    font-weight: 600; font-size: 16.5px; margin: 0;
+    letter-spacing: -.003em;
+  }
+  .hunk-explain {
+    font-size: 14.5px; line-height: 1.6; color: #3b3833;
+    max-width: 640px; margin: 4px 0 10px;
+  }
+  .hunk-explain code {
+    background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+  }
+
+  /* Diff hunks render as plain code blocks. Each .ln is just inline content
+     with newlines preserved by the parent <pre>. Deletions get the strikethrough
+     treatment used elsewhere for rejected/removed content. */
+  pre.code.diff {
+    padding: 20px 22px;
+    font-size: 13px;
+    line-height: 1.6;
+    border: 1px solid var(--line);
+  }
+  pre.code.diff .ln       { display: inline; padding: 0; margin: 0; background: transparent; border: 0; }
+  pre.code.diff .ln.del   { color: var(--faint); text-decoration: line-through; }
+  pre.code.diff .ln.del .k,
+  pre.code.diff .ln.del .s,
+  pre.code.diff .ln.del .c,
+  pre.code.diff .ln.del .ty,
+  pre.code.diff .ln.del .fn,
+  pre.code.diff .ln.del .lit { color: inherit; }
+  pre.code.diff .marker   { display: none; }
+
+  /* No-JS notice */
+  .js-only { display: none; }
+  body:not(.no-js) .js-only { display: block; }
+</style>
+</head>
+<body class="no-js">
+
+<header class="chrome">
+  <div class="chrome-inner">
+    <div class="eyebrow">
+      Walkthrough
+      <span class="sep">·</span>
+      Phase 2 of 4
+      <span class="sep">·</span>
+      <a href="./05-implementation-plan.html">← back to plan</a>
+    </div>
+    <div class="chrome-row">
+      <h1 class="serif">Phone validation wiring</h1>
+      <div class="verif">
+        <span><b class="pass">QA pass</b></span>
+        <span><b class="pass">Code-review pass</b></span>
+        <span><b class="pass">Security pass</b></span>
+        <span>· 1 fix cycle</span>
+      </div>
+    </div>
+    <div class="chrome-controls">
+      <div class="progress-label" id="progress-label">0 of 5 reviewed</div>
+      <div class="progress"><div class="bar" id="progress-bar"></div></div>
+      <button class="order-toggle js-only" type="button" id="order-toggle" aria-pressed="false" aria-label="Toggle traversal order">
+        Order: chronological
+      </button>
+    </div>
+    <nav class="stops-bar" id="stops-bar" aria-label="Commit stops">
+      <button class="chip" data-stop-target="stop-1" aria-current="true">
+        <span class="n"><span class="dot"></span>Stop 1 · a1b2c3d</span>
+        <span class="t">Add schema for E.164 validation</span>
+      </button>
+      <button class="chip" data-stop-target="stop-2">
+        <span class="n"><span class="dot"></span>Stop 2 · b2c3d4e</span>
+        <span class="t">Wire StepPhone to schema</span>
+      </button>
+      <button class="chip" data-stop-target="stop-3">
+        <span class="n"><span class="dot"></span>Stop 3 · c3d4e5f</span>
+        <span class="t">Gate Continue on completion helper</span>
+      </button>
+      <button class="chip trouble" data-stop-target="stop-4">
+        <span class="n"><span class="dot"></span>Stop 4 · d4e5f6a</span>
+        <span class="t">Fixup: whitespace-only as empty</span>
+      </button>
+      <button class="chip" data-stop-target="stop-5">
+        <span class="n"><span class="dot"></span>Stop 5 · e5f6a7b</span>
+        <span class="t">Align flow-config validation</span>
+      </button>
+      <button class="chip synthesis" data-stop-target="stop-synth">
+        <span class="n">▼ Synthesis</span>
+        <span class="t">Cross-commit review</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+
+  <!-- ════════════════════════ STOP 1 ════════════════════════ -->
+  <section class="stop is-active" id="stop-1" data-sha="a1b2c3d">
+    <div class="stop-head">
+      <div class="label">Stop 1 of 5 · work_item</div>
+      <h2 class="serif">Add Zod schema for E.164 validation</h2>
+      <div class="meta">
+        <code>a1b2c3d</code> · <a href="#">git show</a> · focus: <code>apps/web/src/utils/phone/us-sms-phone.schema.ts</code>
+      </div>
+    </div>
+
+    <div class="stop-grid">
+      <div>
+
+        <!-- Intent header -->
+        <div class="intent" aria-label="Intent header">
+          <div class="row"><div class="k">Asked</div><div class="v serif">Build a shared Zod schema that accepts US SMS phone numbers and normalizes them to <code>+1XXXXXXXXXX</code>.</div></div>
+          <div class="row"><div class="k">Approach</div><div class="v">Preprocess → strip non-digits → <code>superRefine</code> for distinct error messages → transform to E.164. Co-located unit tests cover the message branches.</div></div>
+        </div>
+
+        <div class="view-tabs" role="tablist" aria-label="Switch view">
+          <button type="button" role="tab" data-view="review" aria-selected="true">Review</button>
+          <button type="button" role="tab" data-view="diff" aria-selected="false">Diff walkthrough</button>
+        </div>
+
+        <div class="view-review">
+
+        <!-- Scope check -->
+        <div class="block">
+          <div class="head"><span class="num">01</span><h3>Scope check</h3></div>
+          <span class="scope ok"><b>Matches scope</b> — 2 files touched, both declared in phase-2.md</span>
+          <div class="scope-detail">
+            Declared: <code>us-sms-phone.schema.ts</code>, <code>us-sms-phone.schema.test.ts</code>. Actual diff: same two files. No drift.
+          </div>
+        </div>
+
+        <!-- Diagram -->
+        <div class="block">
+          <div class="head"><span class="num">02</span><h3>What this commit adds <span class="illustrative">illustrative</span></h3></div>
+          <div class="diagram-frame">
+            <svg viewBox="0 0 760 200" role="img" aria-label="Schema input-output diagram">
+              <defs>
+                <marker id="s1-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#6a655d"/>
+                </marker>
+              </defs>
+              <g>
+                <rect x="20" y="70" width="160" height="60" rx="12" fill="#fdfaf3" stroke="#d8d1bf" stroke-width="1.5"/>
+                <text x="100" y="98" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c1a17" font-family="-apple-system,Inter,sans-serif">raw string</text>
+                <text x="100" y="116" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">"(415) 555-9876"</text>
+              </g>
+              <g>
+                <rect x="220" y="50" width="320" height="100" rx="12" fill="#fdfaf3" stroke="#c8501e" stroke-width="1.5"/>
+                <text x="380" y="80" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c1a17" font-family="-apple-system,Inter,sans-serif">optionalUsSmsPhoneSchema</text>
+                <text x="380" y="100" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">preprocess · superRefine · transform</text>
+                <text x="380" y="120" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">4 distinct error messages</text>
+                <g transform="translate(496, 56)">
+                  <rect width="34" height="16" rx="8" fill="#c8501e"/>
+                  <text x="17" y="12" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fdfaf3" letter-spacing=".08em" font-family="-apple-system,Inter,sans-serif">NEW</text>
+                </g>
+              </g>
+              <g>
+                <rect x="580" y="70" width="160" height="60" rx="12" fill="#fdfaf3" stroke="#d8d1bf" stroke-width="1.5"/>
+                <text x="660" y="98" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c1a17" font-family="-apple-system,Inter,sans-serif">UsSmsPhone</text>
+                <text x="660" y="116" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">"+14155559876"</text>
+              </g>
+              <line x1="182" y1="100" x2="216" y2="100" stroke="#6a655d" stroke-width="1.5" marker-end="url(#s1-arr)"/>
+              <line x1="542" y1="100" x2="576" y2="100" stroke="#6a655d" stroke-width="1.5" marker-end="url(#s1-arr)"/>
+            </svg>
+            <div class="diagram-caption">
+              A single schema in / one of <span class="clay">four messages</span> or a normalized E.164 string out. Source: <code>architecture.md §3.2 Validation pipeline</code>.
+            </div>
+          </div>
+        </div>
+
+        <!-- Risk badges -->
+        <div class="block">
+          <div class="head"><span class="num">03</span><h3>Risk surface</h3></div>
+          <div class="risks">
+            <span class="risk untrusted">Untrusted input</span>
+            <span class="risk contract">External contract</span>
+          </div>
+          <p style="margin-top: 10px; color: var(--muted); font-size: 14px;">
+            Schema sits on the public form boundary — it eats raw user input. The contract tag is because <code>UsSmsPhone</code> becomes the type the server expects in a later phase.
+          </p>
+        </div>
+
+        <!-- Edge cases -->
+        <div class="block">
+          <div class="head"><span class="num">04</span><h3>Edge cases to trace</h3></div>
+          <ul>
+            <li>11-digit input starting with <code>1</code> — does the transform <em>not</em> double the country code?</li>
+            <li>Pure whitespace — does this commit treat it as empty, or does it fall through to "too short"? <span style="color: var(--warn);">See Stop 4.</span></li>
+            <li>An already-formatted <code>+1XXXXXXXXXX</code> arriving on prefill — does the schema accept it idempotently?</li>
+          </ul>
+        </div>
+
+        <!-- Error handling -->
+        <div class="block">
+          <div class="head"><span class="num">05</span><h3>Error-handling spot check</h3></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">I/O calls in commit (pure schema, no network or fs)</div></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">Silent <code>catch</code> blocks</div></div>
+          <div class="count-row"><div class="n">4</div><div class="lbl">Distinct error messages emitted via <code>ctx.addIssue</code> — empty, non-numeric, too-short, leading-1 mismatch</div></div>
+        </div>
+
+        <!-- Test quality -->
+        <div class="block">
+          <div class="head"><span class="num">06</span><h3>Test quality (not coverage)</h3></div>
+          <div class="count-row"><div class="n">11</div><div class="lbl">Unit tests added in <code>us-sms-phone.schema.test.ts</code></div></div>
+          <div class="count-row"><div class="n">7</div><div class="lbl">Failure-path tests (empty, short, 11-digit non-1 prefix, &gt;11 digits, letters, embedded whitespace, mixed)</div></div>
+          <div class="count-row"><div class="n zero">0</div><div class="lbl">Tests deleted or <code>.skip</code>'d</div></div>
+        </div>
+
+        <!-- Duplication check -->
+        <div class="block">
+          <div class="head"><span class="num">07</span><h3>Duplication check</h3></div>
+          <p>
+            <code>grep -r "libphonenumber"</code> finds a second phone validator in <code>apps/web/src/auth/2fa/phone.ts</code>. The architect decision (plan §02) explicitly keeps them separate — different surface, different requirements. Confirm this commit didn't accidentally extend the 2FA stack.
+          </p>
+        </div>
+
+        <!-- (no uncertainty for stop 1) -->
+
+        </div><!-- /view-review -->
+
+        <div class="view-diff" hidden>
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">us-sms-phone.schema.ts:1–7</span>
+              <h4>The contract</h4>
+            </div>
+            <p class="hunk-explain">Sets the shape callers will see. <code>UsSmsPhone</code> is a template-literal type — only <code>+1XXXXXXXXXX</code> strings inhabit it, so accidental misuse becomes a type error rather than a runtime bug. <code>stripToDigits</code> is named so the regex isn't repeated and the intent ("keep digits only") is visible.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="k">import</span> { z } <span class="k">from</span> <span class="s">"zod"</span>;</span>
+<span class="ln add"><span class="marker">+</span></span>
+<span class="ln add"><span class="marker">+</span><span class="c">// Output shape when accepted: E.164 US — "+1" followed by 10 digits.</span></span>
+<span class="ln add"><span class="marker">+</span><span class="k">export type</span> <span class="ty">UsSmsPhone</span> = <span class="s">`+1${string}`</span>;</span>
+<span class="ln add"><span class="marker">+</span></span>
+<span class="ln add"><span class="marker">+</span><span class="k">const</span> <span class="fn">stripToDigits</span> = (s: <span class="ty">string</span>) =&gt; s.<span class="fn">replace</span>(<span class="lit">/\D/g</span>, <span class="s">""</span>);</span></pre>
+          </div>
+
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">us-sms-phone.schema.ts:9–32</span>
+              <h4>Preprocess → refine → transform</h4>
+            </div>
+            <p class="hunk-explain">A three-phase pipeline. The first <code>transform</code> trims the input so the optional-empty path is uniform. <code>superRefine</code> emits four distinct user-facing messages — the form can tell the user <em>what</em> is wrong, not just <em>that</em> something is. The final <code>transform</code> returns <code>undefined</code> for the legitimately-empty case and a normalized E.164 string otherwise. The 11-digit branch handles the common "1XXXXXXXXXX" paste case without doubling the country code.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="k">export const</span> <span class="fn">optionalUsSmsPhoneSchema</span> = z</span>
+<span class="ln add"><span class="marker">+</span>  .<span class="fn">string</span>()</span>
+<span class="ln add"><span class="marker">+</span>  .<span class="fn">optional</span>()</span>
+<span class="ln add"><span class="marker">+</span>  .<span class="fn">transform</span>((raw) =&gt; (raw ?? <span class="s">""</span>).<span class="fn">trim</span>())</span>
+<span class="ln add"><span class="marker">+</span>  .<span class="fn">superRefine</span>((trimmed, ctx) =&gt; {</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">const</span> digits = <span class="fn">stripToDigits</span>(trimmed);</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">if</span> (digits.length === <span class="lit">0</span>)</span>
+<span class="ln add"><span class="marker">+</span>      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"Please enter a phone number."</span> });</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">else if</span> (digits.length &lt; <span class="lit">10</span>)</span>
+<span class="ln add"><span class="marker">+</span>      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"That number looks too short."</span> });</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">else if</span> (digits.length === <span class="lit">11</span> &amp;&amp; !digits.<span class="fn">startsWith</span>(<span class="s">"1"</span>))</span>
+<span class="ln add"><span class="marker">+</span>      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"We can't recognize that number."</span> });</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">else if</span> (digits.length &gt; <span class="lit">11</span>)</span>
+<span class="ln add"><span class="marker">+</span>      ctx.<span class="fn">addIssue</span>({ code: <span class="s">"custom"</span>, message: <span class="s">"That number has too many digits."</span> });</span>
+<span class="ln add"><span class="marker">+</span>  })</span>
+<span class="ln add"><span class="marker">+</span>  .<span class="fn">transform</span>((trimmed): <span class="ty">UsSmsPhone</span> | <span class="ty">undefined</span> =&gt; {</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">if</span> (trimmed === <span class="s">""</span>) <span class="k">return</span> undefined;</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">const</span> digits = <span class="fn">stripToDigits</span>(trimmed);</span>
+<span class="ln add"><span class="marker">+</span>    <span class="k">return</span> (digits.length === <span class="lit">11</span> ? <span class="s">`+${digits}`</span> : <span class="s">`+1${digits}`</span>) <span class="k">as</span> <span class="ty">UsSmsPhone</span>;</span>
+<span class="ln add"><span class="marker">+</span>  });</span></pre>
+            <p class="hunk-explain" style="margin-top: 10px; color: var(--warn); font-size: 13.5px;">Note: the empty-string fast-path inside <code>superRefine</code> is missing here — that's the bug Stop 4 fixes.</p>
+          </div>
+
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">us-sms-phone.schema.ts:34–41</span>
+              <h4>Selector for the Continue gate</h4>
+            </div>
+            <p class="hunk-explain">Stop 3 wires this into the onboarding flow's <code>disabled</code> prop. Combines consent and a successful parse — both required. Returns a boolean only; the caller never sees the parse result, which keeps the type narrow.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="k">export const</span> <span class="fn">isSmsPhoneStepComplete</span> = (</span>
+<span class="ln add"><span class="marker">+</span>  phone: <span class="ty">string</span> | <span class="ty">undefined</span>,</span>
+<span class="ln add"><span class="marker">+</span>  consent: <span class="ty">boolean</span>,</span>
+<span class="ln add"><span class="marker">+</span>): <span class="ty">boolean</span> =&gt; {</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">if</span> (!consent) <span class="k">return</span> <span class="lit">false</span>;</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">const</span> r = optionalUsSmsPhoneSchema.<span class="fn">safeParse</span>(phone);</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">return</span> r.success &amp;&amp; <span class="k">typeof</span> r.data === <span class="s">"string"</span>;</span>
+<span class="ln add"><span class="marker">+</span>};</span></pre>
+          </div>
+        </div>
+
+        <div class="decision" data-decision-for="a1b2c3d">
+          <span class="lbl">Reviewer decision</span>
+          <div class="row">
+            <button type="button" data-decision="approve" aria-pressed="false">Approve</button>
+            <button type="button" data-decision="request-changes" aria-pressed="false">Request changes</button>
+            <button type="button" data-decision="needs-discussion" aria-pressed="false">Needs discussion</button>
+          </div>
+          <button type="button" class="clear">Clear decision</button>
+        </div>
+
+        <nav class="pager" aria-label="Stop navigation">
+          <button type="button" disabled><span class="lbl">Prev</span>—</button>
+          <button type="button" data-stop-target="stop-2"><span class="lbl">Next →</span>Wire StepPhone to schema</button>
+        </nav>
+      </div>
+
+      <aside class="cumulative" aria-label="Cumulative context">
+        <h4>By the start of this commit</h4>
+        <p class="empty">Phase 2 just started. No prior commits in this phase to summarize.</p>
+        <p style="margin: 10px 0 0; color: var(--muted); font-size: 13px;">Phase 1 (already shipped) introduced the onboarding store and the Continue step shell.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ STOP 2 ════════════════════════ -->
+  <section class="stop" id="stop-2" data-sha="b2c3d4e">
+    <div class="stop-head">
+      <div class="label">Stop 2 of 5 · work_item</div>
+      <h2 class="serif">Wire <code style="font-family: ui-monospace, Menlo, monospace; font-size: .82em;">StepPhone</code> to use the schema</h2>
+      <div class="meta">
+        <code>b2c3d4e</code> · <a href="#">git show</a> · focus: <code>…/onboarding/components/step-phone.tsx:14-78</code>
+      </div>
+    </div>
+
+    <div class="stop-grid">
+      <div>
+
+        <div class="intent">
+          <div class="row"><div class="k">Asked</div><div class="v serif">Validate the phone field as the user types and surface inline errors via <code>aria-describedby</code>.</div></div>
+          <div class="row"><div class="k">Approach</div><div class="v"><code>safeParse</code> on every change, store <code>phoneError</code> locally, write E.164 to Zustand only on success. No third-party form lib.</div></div>
+        </div>
+
+        <div class="view-tabs" role="tablist" aria-label="Switch view">
+          <button type="button" role="tab" data-view="review" aria-selected="true">Review</button>
+          <button type="button" role="tab" data-view="diff" aria-selected="false">Diff walkthrough</button>
+        </div>
+
+        <div class="view-review">
+
+        <div class="block">
+          <div class="head"><span class="num">01</span><h3>Scope check</h3></div>
+          <span class="scope ok"><b>Matches scope</b> — only <code>step-phone.tsx</code> modified</span>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">02</span><h3>Control flow</h3></div>
+          <div class="diagram-frame">
+            <svg viewBox="0 0 760 220" role="img" aria-label="StepPhone onChange flow">
+              <defs>
+                <marker id="s2-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#6a655d"/>
+                </marker>
+                <marker id="s2-arr-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#c8501e"/>
+                </marker>
+              </defs>
+              <rect x="20" y="80" width="140" height="60" rx="12" fill="#fdfaf3" stroke="#d8d1bf" stroke-width="1.5"/>
+              <text x="90" y="106" text-anchor="middle" font-size="13.5" font-weight="600" font-family="-apple-system,Inter,sans-serif">onChange</text>
+              <text x="90" y="124" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">e.target.value</text>
+              <rect x="200" y="80" width="160" height="60" rx="12" fill="#fdfaf3" stroke="#c8501e" stroke-width="1.5"/>
+              <text x="280" y="106" text-anchor="middle" font-size="13.5" font-weight="600" font-family="-apple-system,Inter,sans-serif">safeParse</text>
+              <text x="280" y="124" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">{ success, data, error }</text>
+              <rect x="420" y="20" width="180" height="60" rx="12" fill="#1c1a17"/>
+              <text x="510" y="46" text-anchor="middle" font-size="13.5" font-weight="600" fill="#fdfaf3" font-family="-apple-system,Inter,sans-serif">store.setPhone</text>
+              <text x="510" y="64" text-anchor="middle" font-size="11" fill="#a8a097" font-family="ui-monospace,Menlo,monospace">on success only</text>
+              <rect x="420" y="140" width="180" height="60" rx="12" fill="#fdfaf3" stroke="#c8501e" stroke-width="1.5" stroke-dasharray="5,4"/>
+              <text x="510" y="166" text-anchor="middle" font-size="13.5" font-weight="600" font-family="-apple-system,Inter,sans-serif">setPhoneError</text>
+              <text x="510" y="184" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">aria-describedby</text>
+              <line x1="162" y1="110" x2="196" y2="110" stroke="#6a655d" stroke-width="1.5" marker-end="url(#s2-arr)"/>
+              <line x1="362" y1="100" x2="416" y2="60"  stroke="#6a655d" stroke-width="1.5" marker-end="url(#s2-arr)"/>
+              <line x1="362" y1="120" x2="416" y2="160" stroke="#c8501e" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#s2-arr-clay)"/>
+              <text x="385" y="74"  font-size="11" fill="#6a655d" font-family="-apple-system,Inter,sans-serif">ok</text>
+              <text x="385" y="148" font-size="11" fill="#c8501e" font-family="-apple-system,Inter,sans-serif">err</text>
+            </svg>
+            <div class="diagram-caption">
+              Same control split as <code>plan.html §01</code> — solid is the save path, dashed clay is the derived UI state. The store only sees normalized data.
+            </div>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">03</span><h3>Risk surface</h3></div>
+          <div class="risks">
+            <span class="risk untrusted">Untrusted input</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">04</span><h3>Edge cases to trace</h3></div>
+          <ul>
+            <li>Paste a fully-formatted number — does <code>onChange</code> fire once or twice, and does the store see only one final value?</li>
+            <li>User types then erases — does <code>phoneError</code> clear back to empty, or stick?</li>
+            <li>Prefill from a prior session — does the field render the raw value or the E.164 form?</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">05</span><h3>Error-handling spot check</h3></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">I/O calls (controlled input, no network)</div></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">Silent <code>catch</code> blocks</div></div>
+          <div class="count-row"><div class="n">1</div><div class="lbl"><code>safeParse</code> result inspected explicitly — both branches handled</div></div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">06</span><h3>Test quality</h3></div>
+          <div class="count-row"><div class="n">3</div><div class="lbl">Integration tests added (typing flow, prefill, error visibility)</div></div>
+          <div class="count-row"><div class="n">2</div><div class="lbl">Failure-path tests of the 3</div></div>
+          <div class="count-row"><div class="n zero">0</div><div class="lbl">Tests deleted or skipped</div></div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">07</span><h3>Duplication check</h3></div>
+          <p>No similar controlled-input + <code>safeParse</code> pattern found elsewhere in <code>apps/web/src/onboarding/</code>. This is the first; future fields can mirror it.</p>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">08</span><h3>Uncertainty</h3></div>
+          <div class="uncert">
+            The engineer's commit message mentions debouncing was considered and dropped — "felt unnecessary for a 10-character field." If the field becomes longer in a follow-up, revisit.
+          </div>
+        </div>
+
+        </div><!-- /view-review -->
+
+        <div class="view-diff" hidden>
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">step-phone.tsx:14–38</span>
+              <h4>Parse-on-change and store update</h4>
+            </div>
+            <p class="hunk-explain"><code>safeParse</code> runs on every keystroke. On success the store gets the E.164 form; on failure the store is cleared so a stale-valid value can't slip through a later submit. Either branch updates <code>phoneError</code> for the inline error element. The <code>// TODO: debounce?</code> is what Stop 2's "Uncertainty" callout flags.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="k">const</span> [phoneError, setPhoneError] = <span class="fn">useState</span>&lt;<span class="ty">string</span> | <span class="ty">null</span>&gt;(<span class="lit">null</span>);</span>
+<span class="ln add"><span class="marker">+</span><span class="k">const</span> setPhone = useOnboardingStore((s) =&gt; s.setPhone);</span>
+<span class="ln add"><span class="marker">+</span></span>
+<span class="ln add"><span class="marker">+</span><span class="c">// TODO: debounce? (see commit message — dropped for now)</span></span>
+<span class="ln add"><span class="marker">+</span><span class="k">const</span> <span class="fn">onPhoneChange</span> = (e: <span class="ty">ChangeEvent</span>&lt;<span class="ty">HTMLInputElement</span>&gt;) =&gt; {</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">const</span> raw = e.target.value;</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">const</span> r = optionalUsSmsPhoneSchema.<span class="fn">safeParse</span>(raw);</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">if</span> (r.success) {</span>
+<span class="ln add"><span class="marker">+</span>    <span class="fn">setPhone</span>(r.data); <span class="c">// E.164 string or undefined</span></span>
+<span class="ln add"><span class="marker">+</span>    <span class="fn">setPhoneError</span>(<span class="lit">null</span>);</span>
+<span class="ln add"><span class="marker">+</span>  } <span class="k">else</span> {</span>
+<span class="ln add"><span class="marker">+</span>    <span class="fn">setPhone</span>(<span class="lit">undefined</span>);</span>
+<span class="ln add"><span class="marker">+</span>    <span class="fn">setPhoneError</span>(r.error.issues[<span class="lit">0</span>]?.message ?? <span class="s">"Invalid phone"</span>);</span>
+<span class="ln add"><span class="marker">+</span>  }</span>
+<span class="ln add"><span class="marker">+</span>};</span></pre>
+          </div>
+
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">step-phone.tsx:62–78</span>
+              <h4>Accessible error markup</h4>
+            </div>
+            <p class="hunk-explain">The input wires <code>aria-describedby</code> to the error element <em>only when</em> an error exists. Empty <code>aria-describedby</code> references are an accessibility smell — at least one screen reader announces them as "empty" — so the conditional avoids the dangling-id case.</p>
+            <pre class="code diff"><span class="ln"><span class="marker"> </span>&lt;<span class="ty">label</span> htmlFor=<span class="s">"phone"</span>&gt;Phone number&lt;/<span class="ty">label</span>&gt;</span>
+<span class="ln add"><span class="marker">+</span>&lt;<span class="ty">input</span></span>
+<span class="ln add"><span class="marker">+</span>  id=<span class="s">"phone"</span></span>
+<span class="ln add"><span class="marker">+</span>  type=<span class="s">"tel"</span></span>
+<span class="ln add"><span class="marker">+</span>  inputMode=<span class="s">"tel"</span></span>
+<span class="ln add"><span class="marker">+</span>  onChange={onPhoneChange}</span>
+<span class="ln add"><span class="marker">+</span>  aria-invalid={phoneError ? <span class="lit">true</span> : <span class="lit">undefined</span>}</span>
+<span class="ln add"><span class="marker">+</span>  aria-describedby={phoneError ? <span class="s">"phone-error"</span> : <span class="lit">undefined</span>}</span>
+<span class="ln add"><span class="marker">+</span>/&gt;</span>
+<span class="ln add"><span class="marker">+</span>{phoneError &amp;&amp; (</span>
+<span class="ln add"><span class="marker">+</span>  &lt;<span class="ty">p</span> id=<span class="s">"phone-error"</span> role=<span class="s">"alert"</span>&gt;{phoneError}&lt;/<span class="ty">p</span>&gt;</span>
+<span class="ln add"><span class="marker">+</span>)}</span></pre>
+          </div>
+        </div>
+
+        <div class="decision" data-decision-for="b2c3d4e">
+          <span class="lbl">Reviewer decision</span>
+          <div class="row">
+            <button type="button" data-decision="approve" aria-pressed="false">Approve</button>
+            <button type="button" data-decision="request-changes" aria-pressed="false">Request changes</button>
+            <button type="button" data-decision="needs-discussion" aria-pressed="false">Needs discussion</button>
+          </div>
+          <button type="button" class="clear">Clear decision</button>
+        </div>
+
+        <nav class="pager">
+          <button type="button" data-stop-target="stop-1"><span class="lbl">← Prev</span>Add schema for E.164</button>
+          <button type="button" data-stop-target="stop-3"><span class="lbl">Next →</span>Gate Continue on helper</button>
+        </nav>
+      </div>
+
+      <aside class="cumulative">
+        <h4>By the start of this commit</h4>
+        <ul>
+          <li>Shared schema <code>optionalUsSmsPhoneSchema</code> exists and is unit-tested.</li>
+          <li>No React surface yet consumes the schema — that's this commit.</li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ STOP 3 ════════════════════════ -->
+  <section class="stop" id="stop-3" data-sha="c3d4e5f">
+    <div class="stop-head">
+      <div class="label">Stop 3 of 5 · work_item</div>
+      <h2 class="serif">Gate <code style="font-family: ui-monospace, Menlo, monospace; font-size: .82em;">Continue</code> on completion helper</h2>
+      <div class="meta">
+        <code>c3d4e5f</code> · <a href="#">git show</a> · focus: <code>…/onboarding/components/onboarding-flow.tsx:88-104</code>
+      </div>
+    </div>
+
+    <div class="stop-grid">
+      <div>
+
+        <div class="intent">
+          <div class="row"><div class="k">Asked</div><div class="v serif">Block the Continue button until the phone field is valid and consent is checked.</div></div>
+          <div class="row"><div class="k">Approach</div><div class="v">New selector <code>isSmsPhoneStepComplete</code> re-runs the schema. Continue's <code>disabled</code> prop reads it.</div></div>
+        </div>
+
+        <div class="view-tabs" role="tablist" aria-label="Switch view">
+          <button type="button" role="tab" data-view="review" aria-selected="true">Review</button>
+          <button type="button" role="tab" data-view="diff" aria-selected="false">Diff walkthrough</button>
+        </div>
+
+        <div class="view-review">
+
+        <div class="block">
+          <div class="head"><span class="num">01</span><h3>Scope check</h3></div>
+          <span class="scope drift"><b>Minor drift</b> — touched 1 file beyond declared scope</span>
+          <div class="scope-detail">
+            Declared: <code>onboarding-flow.tsx</code>. Actual: also re-exports the helper from <code>…/phone/index.ts</code>. Likely fine — re-export, no logic. Confirm it doesn't widen the public API beyond what later phases assume.
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">02</span><h3>Where the gate sits</h3></div>
+          <div class="diagram-frame">
+            <svg viewBox="0 0 760 160" role="img" aria-label="Continue gate diagram">
+              <defs>
+                <marker id="s3-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#6a655d"/>
+                </marker>
+              </defs>
+              <rect x="20" y="50" width="180" height="60" rx="12" fill="#1c1a17"/>
+              <text x="110" y="76" text-anchor="middle" font-size="13.5" font-weight="600" fill="#fdfaf3" font-family="-apple-system,Inter,sans-serif">Zustand store</text>
+              <text x="110" y="94" text-anchor="middle" font-size="11" fill="#a8a097" font-family="ui-monospace,Menlo,monospace">phone, consent</text>
+              <rect x="260" y="50" width="240" height="60" rx="12" fill="#fdfaf3" stroke="#c8501e" stroke-width="1.5"/>
+              <text x="380" y="76" text-anchor="middle" font-size="13.5" font-weight="600" font-family="-apple-system,Inter,sans-serif">isSmsPhoneStepComplete</text>
+              <text x="380" y="94" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">selector · pure function</text>
+              <rect x="560" y="50" width="180" height="60" rx="12" fill="#fdfaf3" stroke="#d8d1bf" stroke-width="1.5"/>
+              <text x="650" y="76" text-anchor="middle" font-size="13.5" font-weight="600" font-family="-apple-system,Inter,sans-serif">Continue</text>
+              <text x="650" y="94" text-anchor="middle" font-size="11" fill="#6a655d" font-family="ui-monospace,Menlo,monospace">disabled={!complete}</text>
+              <line x1="202" y1="80" x2="256" y2="80" stroke="#6a655d" stroke-width="1.5" marker-end="url(#s3-arr)"/>
+              <line x1="502" y1="80" x2="556" y2="80" stroke="#6a655d" stroke-width="1.5" marker-end="url(#s3-arr)"/>
+            </svg>
+            <div class="diagram-caption">The selector is the single truth for "can the user advance" — phase 3 will reuse it from <code>flow-config</code>.</div>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">03</span><h3>Risk surface</h3></div>
+          <div class="risks">
+            <span class="risk none">No flagged risk</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">04</span><h3>Edge cases to trace</h3></div>
+          <ul>
+            <li>Consent toggled off after phone is valid — does Continue re-disable?</li>
+            <li>Prefill of a valid phone — is Continue enabled on first render, or does it require an interaction?</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">05</span><h3>Error-handling spot check</h3></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">I/O calls</div></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">Silent <code>catch</code> blocks</div></div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">06</span><h3>Test quality</h3></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">New tests this commit — existing flow tests still green after the gating change</div></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">Tests deleted or skipped</div></div>
+          <p style="margin-top: 8px; color: var(--warn); font-size: 14px;">
+            Test-quality flag: a selector with two inputs and a non-trivial composition (consent &amp;&amp; schema-valid) deserves a direct unit test even if integration is green. Consider adding before phase 3 reuses it.
+          </p>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">07</span><h3>Duplication check</h3></div>
+          <p>
+            <code>grep -r "canGoNext\|isStepComplete"</code> finds <code>flow-config.ts</code> has its own <code>canGoNext()</code> that gates the next step. <strong>Phase 3 plans to consolidate them</strong> — keep an eye on whether commit 5 (<code>e5f6a7b</code>) actually deletes the duplicate.
+          </p>
+        </div>
+
+        </div><!-- /view-review -->
+
+        <div class="view-diff" hidden>
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">onboarding-flow.tsx:5–6</span>
+              <h4>Pull in the shared completion check</h4>
+            </div>
+            <p class="hunk-explain">Brings <code>isSmsPhoneStepComplete</code> in from the schema module. No relative-import drama because phase 2's plan put the schema next to its consumer.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="k">import</span> { isSmsPhoneStepComplete } <span class="k">from</span> <span class="s">"../../utils/phone/us-sms-phone.schema"</span>;</span></pre>
+          </div>
+
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">onboarding-flow.tsx:88–104</span>
+              <h4>Continue reads from the selector</h4>
+            </div>
+            <p class="hunk-explain">The previous code had a local helper that re-checked the phone format. That's now the selector's job. Phase 3 will point <code>flow-config.canGoNext</code> at the same selector — so the two gates can never drift. Note the small re-export added in <code>…/phone/index.ts</code> (the Stop 3 scope-drift flag); it's a one-line re-export, no behavior.</p>
+            <pre class="code diff"><span class="ln del"><span class="marker">−</span><span class="k">const</span> phoneOk = phone &amp;&amp; phone.<span class="fn">match</span>(<span class="lit">/^\+1\d{10}$/</span>);</span>
+<span class="ln del"><span class="marker">−</span>&lt;<span class="ty">Continue</span> disabled={!(phoneOk &amp;&amp; consent)} /&gt;</span>
+<span class="ln add"><span class="marker">+</span><span class="k">const</span> complete = <span class="fn">isSmsPhoneStepComplete</span>(phone, consent);</span>
+<span class="ln add"><span class="marker">+</span>&lt;<span class="ty">Continue</span> disabled={!complete} /&gt;</span></pre>
+          </div>
+        </div>
+
+        <div class="decision" data-decision-for="c3d4e5f">
+          <span class="lbl">Reviewer decision</span>
+          <div class="row">
+            <button type="button" data-decision="approve" aria-pressed="false">Approve</button>
+            <button type="button" data-decision="request-changes" aria-pressed="false">Request changes</button>
+            <button type="button" data-decision="needs-discussion" aria-pressed="false">Needs discussion</button>
+          </div>
+          <button type="button" class="clear">Clear decision</button>
+        </div>
+
+        <nav class="pager">
+          <button type="button" data-stop-target="stop-2"><span class="lbl">← Prev</span>Wire StepPhone to schema</button>
+          <button type="button" data-stop-target="stop-4"><span class="lbl">Next →</span>Fixup: whitespace-only as empty</button>
+        </nav>
+      </div>
+
+      <aside class="cumulative">
+        <h4>By the start of this commit</h4>
+        <ul>
+          <li>Schema available and unit-tested.</li>
+          <li>StepPhone parses on change and surfaces inline errors.</li>
+          <li>Store holds normalized E.164 when valid.</li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ STOP 4 — TROUBLE SPOT ════════════════════════ -->
+  <section class="stop" id="stop-4" data-sha="d4e5f6a">
+    <div class="stop-head">
+      <div class="label" style="color: var(--warn);">Stop 4 of 5 · ▲ trouble spot · fixup</div>
+      <h2 class="serif">Whitespace-only input must be treated as empty</h2>
+      <div class="meta">
+        <code>d4e5f6a</code> · fix-up for <code>add-zod-schema-for-e164</code> · <a href="#">git show</a> · focus: <code>us-sms-phone.schema.ts:18-22</code>
+      </div>
+    </div>
+
+    <div class="stop-grid">
+      <div>
+
+        <div class="intent">
+          <div class="row"><div class="k">Triggered by</div><div class="v"><strong>qa-verifier</strong> · TC-013 failed — "input of three spaces shows error 'too short' instead of being accepted as empty."</div></div>
+          <div class="row"><div class="k">Approach</div><div class="v">Trim the preprocessed string before the length check; whitespace becomes <code>""</code> which is the documented "empty / optional accepted" path.</div></div>
+        </div>
+
+        <div class="view-tabs" role="tablist" aria-label="Switch view">
+          <button type="button" role="tab" data-view="review" aria-selected="true">Review</button>
+          <button type="button" role="tab" data-view="diff" aria-selected="false">Diff walkthrough</button>
+        </div>
+
+        <div class="view-review">
+
+        <div class="block">
+          <div class="head"><span class="num">01</span><h3>What changed</h3></div>
+          <p>One-line addition inside <code>superRefine</code>: <code>if (trimmed === "") return;</code> before the digit-length branches. Plus a regression test that pins the behavior.</p>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">02</span><h3>Risk surface</h3></div>
+          <div class="risks">
+            <span class="risk untrusted">Untrusted input</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">03</span><h3>Same-class checks elsewhere</h3></div>
+          <ul>
+            <li>Are there other optional string fields in onboarding that should also treat whitespace as empty? <code>grep "optional()" apps/web/src/onboarding</code> — confirm consistency.</li>
+            <li>Does the empty / accepted path still emit <code>undefined</code> from the final transform? Verify the store doesn't briefly hold an empty string.</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">04</span><h3>Test quality</h3></div>
+          <div class="count-row"><div class="n">1</div><div class="lbl">Regression test added (whitespace-only → no error, undefined output)</div></div>
+          <div class="count-row"><div class="n zero">0</div><div class="lbl">Tests deleted or skipped</div></div>
+        </div>
+
+        </div><!-- /view-review -->
+
+        <div class="view-diff" hidden>
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">us-sms-phone.schema.ts:18–22</span>
+              <h4>Early-return on whitespace-only input</h4>
+            </div>
+            <p class="hunk-explain">Without this, <code>stripToDigits('   ')</code> returns <code>''</code>, length 0, hitting the "too short" branch. AC-2.3 says whitespace is the optional-empty path, so the refinement exits before emitting an error. The final <code>transform</code> at the bottom of the schema already handles <code>""</code> by returning <code>undefined</code>.</p>
+            <pre class="code diff"><span class="ln"><span class="marker"> </span>.<span class="fn">superRefine</span>((trimmed, ctx) =&gt; {</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">if</span> (trimmed === <span class="s">""</span>) <span class="k">return</span>;</span>
+<span class="ln"><span class="marker"> </span>  <span class="k">const</span> digits = <span class="fn">stripToDigits</span>(trimmed);</span>
+<span class="ln"><span class="marker"> </span>  <span class="k">if</span> (digits.length === <span class="lit">0</span>)</span></pre>
+          </div>
+
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">us-sms-phone.schema.test.ts:96–104</span>
+              <h4>Pin the corrected behavior</h4>
+            </div>
+            <p class="hunk-explain">Will fail if anyone reverts the early return. Tests the symptom (no issues, undefined output) rather than the implementation, so a future refactor that achieves the same behavior differently still passes.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="fn">it</span>(<span class="s">"treats whitespace-only as empty (AC-2.3)"</span>, () =&gt; {</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">const</span> r = optionalUsSmsPhoneSchema.<span class="fn">safeParse</span>(<span class="s">"   "</span>);</span>
+<span class="ln add"><span class="marker">+</span>  <span class="fn">expect</span>(r.success).<span class="fn">toBe</span>(<span class="lit">true</span>);</span>
+<span class="ln add"><span class="marker">+</span>  <span class="fn">expect</span>(r.data).<span class="fn">toBeUndefined</span>();</span>
+<span class="ln add"><span class="marker">+</span>});</span></pre>
+          </div>
+        </div>
+
+        <div class="decision" data-decision-for="d4e5f6a">
+          <span class="lbl">Reviewer decision</span>
+          <div class="row">
+            <button type="button" data-decision="approve" aria-pressed="false">Approve</button>
+            <button type="button" data-decision="request-changes" aria-pressed="false">Request changes</button>
+            <button type="button" data-decision="needs-discussion" aria-pressed="false">Needs discussion</button>
+          </div>
+          <button type="button" class="clear">Clear decision</button>
+        </div>
+
+        <nav class="pager">
+          <button type="button" data-stop-target="stop-3"><span class="lbl">← Prev</span>Gate Continue on helper</button>
+          <button type="button" data-stop-target="stop-5"><span class="lbl">Next →</span>Align flow-config validation</button>
+        </nav>
+      </div>
+
+      <aside class="cumulative">
+        <h4>By the start of this commit</h4>
+        <ul>
+          <li>Schema accepts most inputs correctly but rejects whitespace-only with the wrong message.</li>
+          <li>QA suite caught it before code-review.</li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ STOP 5 ════════════════════════ -->
+  <section class="stop" id="stop-5" data-sha="e5f6a7b">
+    <div class="stop-head">
+      <div class="label">Stop 5 of 5 · work_item</div>
+      <h2 class="serif">Align <code style="font-family: ui-monospace, Menlo, monospace; font-size: .82em;">flow-config</code> validation with shared helper</h2>
+      <div class="meta">
+        <code>e5f6a7b</code> · <a href="#">git show</a> · focus: <code>…/onboarding/utils/flow-config.ts:42-58</code>
+      </div>
+    </div>
+
+    <div class="stop-grid">
+      <div>
+
+        <div class="intent">
+          <div class="row"><div class="k">Asked</div><div class="v serif">Stop maintaining two separate "can advance from phone step" checks — let <code>flow-config</code> use <code>isSmsPhoneStepComplete</code>.</div></div>
+          <div class="row"><div class="k">Approach</div><div class="v">Delete the duplicated regex check in <code>flow-config</code>; import and call the helper.</div></div>
+        </div>
+
+        <div class="view-tabs" role="tablist" aria-label="Switch view">
+          <button type="button" role="tab" data-view="review" aria-selected="true">Review</button>
+          <button type="button" role="tab" data-view="diff" aria-selected="false">Diff walkthrough</button>
+        </div>
+
+        <div class="view-review">
+
+        <div class="block">
+          <div class="head"><span class="num">01</span><h3>Scope check</h3></div>
+          <span class="scope ok"><b>Matches scope</b> — one file modified</span>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">02</span><h3>Risk surface</h3></div>
+          <div class="risks">
+            <span class="risk none">No flagged risk</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">03</span><h3>Edge cases to trace</h3></div>
+          <ul>
+            <li>Was the old regex laxer or stricter than the schema? If laxer, a user who could previously advance may now be blocked — confirm intentional.</li>
+            <li>Does the import cycle stay clean? <code>flow-config → utils/phone → schema</code> — schema must not import from <code>flow-config</code>.</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">04</span><h3>Error-handling spot check</h3></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">I/O calls</div></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">Silent <code>catch</code> blocks</div></div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">05</span><h3>Test quality</h3></div>
+          <div class="count-row"><div class="n">0</div><div class="lbl">New tests — existing flow-config tests cover the canGoNext branch</div></div>
+          <div class="count-row"><div class="n zero">0</div><div class="lbl">Tests deleted or skipped</div></div>
+        </div>
+
+        <div class="block">
+          <div class="head"><span class="num">06</span><h3>Duplication check</h3></div>
+          <p>This commit <em>removes</em> the duplicate flagged at Stop 3. Confirm the old regex constant <code>PHONE_RE</code> is gone — not just unreferenced. The synthesis pass will double-check.</p>
+        </div>
+
+        </div><!-- /view-review -->
+
+        <div class="view-diff" hidden>
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">flow-config.ts:1–3, 42–46</span>
+              <h4>Remove the local regex check</h4>
+            </div>
+            <p class="hunk-explain"><code>PHONE_RE</code> and the inline check are now redundant. <code>grep PHONE_RE</code> confirmed no other consumers reference it, so the constant goes with the check rather than being left as dead code.</p>
+            <pre class="code diff"><span class="ln del"><span class="marker">−</span><span class="k">const</span> PHONE_RE = <span class="lit">/^\+1\d{10}$/</span>;</span>
+<span class="ln del"><span class="marker">−</span></span>
+<span class="ln"><span class="marker"> </span><span class="c">// inside canGoNext for the sms-phone step:</span></span>
+<span class="ln del"><span class="marker">−</span><span class="k">if</span> (step === <span class="s">"sms-phone"</span>) {</span>
+<span class="ln del"><span class="marker">−</span>  <span class="k">return</span> !!phone &amp;&amp; PHONE_RE.<span class="fn">test</span>(phone) &amp;&amp; consent;</span>
+<span class="ln del"><span class="marker">−</span>}</span></pre>
+          </div>
+
+          <div class="hunk">
+            <div class="hunk-head">
+              <span class="hunk-path">flow-config.ts:1, 42–46</span>
+              <h4>Call the shared helper</h4>
+            </div>
+            <p class="hunk-explain">Same selector that Continue uses (Stop 3). The two gates can no longer drift because there is only one implementation of "phone step is complete." If product later changes what "complete" means, only the helper changes.</p>
+            <pre class="code diff"><span class="ln add"><span class="marker">+</span><span class="k">import</span> { isSmsPhoneStepComplete } <span class="k">from</span> <span class="s">"../utils/phone/us-sms-phone.schema"</span>;</span>
+<span class="ln"><span class="marker"> </span></span>
+<span class="ln"><span class="marker"> </span><span class="c">// inside canGoNext for the sms-phone step:</span></span>
+<span class="ln add"><span class="marker">+</span><span class="k">if</span> (step === <span class="s">"sms-phone"</span>) {</span>
+<span class="ln add"><span class="marker">+</span>  <span class="k">return</span> <span class="fn">isSmsPhoneStepComplete</span>(phone, consent);</span>
+<span class="ln add"><span class="marker">+</span>}</span></pre>
+          </div>
+        </div>
+
+        <div class="decision" data-decision-for="e5f6a7b">
+          <span class="lbl">Reviewer decision</span>
+          <div class="row">
+            <button type="button" data-decision="approve" aria-pressed="false">Approve</button>
+            <button type="button" data-decision="request-changes" aria-pressed="false">Request changes</button>
+            <button type="button" data-decision="needs-discussion" aria-pressed="false">Needs discussion</button>
+          </div>
+          <button type="button" class="clear">Clear decision</button>
+        </div>
+
+        <nav class="pager">
+          <button type="button" data-stop-target="stop-4"><span class="lbl">← Prev</span>Fixup: whitespace-only</button>
+          <button type="button" data-stop-target="stop-synth"><span class="lbl">Next →</span>Cross-commit synthesis</button>
+        </nav>
+      </div>
+
+      <aside class="cumulative">
+        <h4>By the start of this commit</h4>
+        <ul>
+          <li>Schema, StepPhone, completion selector, and Continue gating all in place.</li>
+          <li>One known duplicate to remove: <code>PHONE_RE</code> in <code>flow-config</code>.</li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ SYNTHESIS ════════════════════════ -->
+  <section class="stop synthesis" id="stop-synth">
+    <div class="stop-head">
+      <div class="label">Synthesis · cross-commit review</div>
+      <h2 class="serif">Did these five commits compose correctly?</h2>
+      <div class="meta">Re-reading the full phase diff after all stops are reviewed.</div>
+    </div>
+
+    <p style="max-width: 680px; margin: 0 0 22px; font-size: 16px; line-height: 1.6;">
+      Atomic commits review well in isolation but can introduce redundancy or leave scaffolding behind in aggregate. This pass checks the phase as a unit: dead code from earlier commits, contradictions, leftover scaffolding, tests still meaningful, and the net file footprint vs. what the phase plan declared.
+    </p>
+
+    <div class="synthesis-grid">
+      <div class="synthesis-card">
+        <h4>Dead code from earlier commits</h4>
+        <div class="finding">
+          <code>PHONE_RE</code> regex constant declared in <code>flow-config.ts:3</code> after Stop 3, then never referenced once Stop 5 deleted the consumer. Confirmed deleted in <code>e5f6a7b</code> — <strong>no dead code remaining</strong>.
+        </div>
+      </div>
+
+      <div class="synthesis-card">
+        <h4>Contradictions across commits</h4>
+        <div class="finding">
+          <strong>Resolved:</strong> Stop 1 emitted "too short" for whitespace; Stop 4 reversed that to treat whitespace as empty. The final behavior matches the phase plan's AC-2.3 — Stop 1's behavior was the bug.
+        </div>
+      </div>
+
+      <div class="synthesis-card">
+        <h4>Scaffolding left behind</h4>
+        <div class="finding">
+          <code>// TODO: debounce?</code> comment introduced in Stop 2 still present at <code>step-phone.tsx:34</code>. Engineer flagged it as deliberate (see Stop 2 Uncertainty). <span style="color: var(--muted);">Reviewer call: leave or remove.</span>
+        </div>
+        <div class="finding">
+          <span class="empty">No mocks, stubs, or feature flags introduced this phase.</span>
+        </div>
+      </div>
+
+      <div class="synthesis-card">
+        <h4>Tests still meaningful in aggregate</h4>
+        <div class="finding">
+          11 schema unit tests + 3 StepPhone integration tests + 1 regression test = 15 added, 0 removed. Every test exercises a behavior still present after the final commit. <span class="empty">No test exists only to validate an intermediate state.</span>
+        </div>
+      </div>
+
+      <div class="synthesis-card">
+        <h4>Net file footprint vs. plan</h4>
+        <div class="finding">
+          Plan declared 4 files. Actual: 4 files + 1 re-export added in <code>…/phone/index.ts</code> (Stop 3 drift). Re-export is one line and doesn't widen the contract — <strong>acceptable</strong>, but worth noting for the plan→reality table in the final review.
+        </div>
+      </div>
+
+      <div class="synthesis-card">
+        <h4>Open questions for this phase</h4>
+        <div class="finding">The debounce TODO at <code>step-phone.tsx:34</code>.</div>
+        <div class="finding">Whether the old regex was laxer than the schema (Stop 5 edge case) — needs manual cross-check against any legacy onboarding records.</div>
+      </div>
+    </div>
+
+    <nav class="pager" style="margin-top: 32px;">
+      <button type="button" data-stop-target="stop-5"><span class="lbl">← Prev</span>Align flow-config validation</button>
+      <button type="button" disabled><span class="lbl">End</span>—</button>
+    </nav>
+  </section>
+
+  <footer class="colophon">
+    Sourced from <code>phases/phase-2.md</code>, <code>architecture.md</code>, <code>stack.json</code>, <code>verification/phase-2/{qa,code-review,security}-report.md</code>, and <code>git show</code> on each commit SHA. Prototype — design not final.
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+  document.body.classList.remove('no-js');
+
+  var STORAGE_KEY = 'walkthrough-phase-2';
+  var stops = Array.prototype.slice.call(document.querySelectorAll('section.stop'));
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.stops-bar .chip'));
+  var bar = document.getElementById('progress-bar');
+  var label = document.getElementById('progress-label');
+  var orderToggle = document.getElementById('order-toggle');
+  var stopsBar = document.getElementById('stops-bar');
+
+  function loadDecisions() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    } catch (e) { return {}; }
+  }
+  function saveDecisions(d) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch (e) {}
+  }
+
+  var decisions = loadDecisions();
+
+  function applyDecisionUI() {
+    document.querySelectorAll('[data-decision-for]').forEach(function (panel) {
+      var sha = panel.getAttribute('data-decision-for');
+      var current = decisions[sha] || '';
+      panel.querySelectorAll('button[data-decision]').forEach(function (btn) {
+        btn.setAttribute('aria-pressed', btn.getAttribute('data-decision') === current ? 'true' : 'false');
+      });
+    });
+    chips.forEach(function (chip) {
+      var target = chip.getAttribute('data-stop-target');
+      if (!target) return;
+      var stopEl = document.getElementById(target);
+      var sha = stopEl ? stopEl.getAttribute('data-sha') : null;
+      if (sha && decisions[sha]) {
+        chip.setAttribute('data-decision', decisions[sha]);
+      } else {
+        chip.removeAttribute('data-decision');
+      }
+    });
+    var reviewable = chips.filter(function (c) {
+      var el = document.getElementById(c.getAttribute('data-stop-target'));
+      return el && el.getAttribute('data-sha');
+    });
+    var done = reviewable.filter(function (c) {
+      var sha = document.getElementById(c.getAttribute('data-stop-target')).getAttribute('data-sha');
+      return !!decisions[sha];
+    }).length;
+    var pct = reviewable.length === 0 ? 0 : Math.round((done / reviewable.length) * 100);
+    bar.style.width = pct + '%';
+    label.textContent = done + ' of ' + reviewable.length + ' reviewed';
+  }
+
+  function showStop(id) {
+    stops.forEach(function (s) { s.classList.toggle('is-active', s.id === id); });
+    chips.forEach(function (c) {
+      c.setAttribute('aria-current', c.getAttribute('data-stop-target') === id ? 'true' : 'false');
+    });
+    if (location.hash !== '#' + id) {
+      history.replaceState(null, '', '#' + id);
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  document.querySelectorAll('[data-stop-target]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      showStop(el.getAttribute('data-stop-target'));
+    });
+  });
+
+  document.querySelectorAll('[data-decision-for] button[data-decision]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var panel = btn.closest('[data-decision-for]');
+      var sha = panel.getAttribute('data-decision-for');
+      var val = btn.getAttribute('data-decision');
+      if (decisions[sha] === val) delete decisions[sha];
+      else decisions[sha] = val;
+      saveDecisions(decisions);
+      applyDecisionUI();
+    });
+  });
+  document.querySelectorAll('[data-decision-for] .clear').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var sha = btn.closest('[data-decision-for]').getAttribute('data-decision-for');
+      delete decisions[sha];
+      saveDecisions(decisions);
+      applyDecisionUI();
+    });
+  });
+
+  // Order toggle: reorders the stops-bar chips by a (fictional, illustrative) execution order.
+  // Chronological order matches DOM order. Execution-order array below is the heuristic result;
+  // in the real generator it comes from cross-referencing symbols added per commit.
+  var chronologicalOrder = chips.map(function (c) { return c.getAttribute('data-stop-target'); });
+  var executionOrder = ['stop-1', 'stop-3', 'stop-2', 'stop-5', 'stop-4', 'stop-synth'];
+
+  orderToggle.addEventListener('click', function () {
+    var pressed = orderToggle.getAttribute('aria-pressed') === 'true';
+    var next = !pressed;
+    orderToggle.setAttribute('aria-pressed', String(next));
+    orderToggle.textContent = next ? 'Order: execution (best-effort)' : 'Order: chronological';
+    var order = next ? executionOrder : chronologicalOrder;
+    order.forEach(function (id) {
+      var chip = chips.filter(function (c) { return c.getAttribute('data-stop-target') === id; })[0];
+      if (chip) stopsBar.appendChild(chip);
+    });
+  });
+
+  // Keyboard nav: ← / →
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /^(INPUT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;
+    var active = document.querySelector('section.stop.is-active');
+    if (!active) return;
+    var idx = stops.indexOf(active);
+    if (e.key === 'ArrowRight' && idx < stops.length - 1) { e.preventDefault(); showStop(stops[idx + 1].id); }
+    if (e.key === 'ArrowLeft' && idx > 0) { e.preventDefault(); showStop(stops[idx - 1].id); }
+  });
+
+  // ─── View toggle (Review / Diff walkthrough) ───
+  var VIEW_KEY = STORAGE_KEY + ':view';
+  function loadView() {
+    try { return localStorage.getItem(VIEW_KEY) || 'review'; } catch (e) { return 'review'; }
+  }
+  function saveView(v) {
+    try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
+  }
+  function applyView(view) {
+    document.querySelectorAll('section.stop').forEach(function (s) {
+      var review = s.querySelector('.view-review');
+      var diff = s.querySelector('.view-diff');
+      if (!review || !diff) return; // synthesis page has neither
+      if (view === 'diff') { review.hidden = true; diff.hidden = false; }
+      else                 { review.hidden = false; diff.hidden = true; }
+    });
+    document.querySelectorAll('.view-tabs button[data-view]').forEach(function (btn) {
+      btn.setAttribute('aria-selected', btn.getAttribute('data-view') === view ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('.view-tabs button[data-view]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var v = btn.getAttribute('data-view');
+      saveView(v);
+      applyView(v);
+    });
+  });
+  applyView(loadView());
+
+  // Initial state: respect URL hash if it points to a stop, else show first
+  var initial = location.hash && document.getElementById(location.hash.slice(1));
+  if (initial && initial.classList.contains('stop')) {
+    showStop(initial.id);
+  } else {
+    showStop('stop-1');
+  }
+  applyDecisionUI();
+})();
+</script>
+
+</body>
+</html>

@@ -273,13 +273,17 @@ Spin up one `engineer` subagent in **fix mode**. Pass:
 
 The engineer will append fix-up commits (never amend) and update `stack.json`. When they report complete, return to Step 3.
 
-### Step 5: Generate the walkthrough
+### Step 5: Generate the walkthroughs
 
-Spin up `walkthrough-author`. Pass:
+Spin up `walkthrough-author` and `walkthrough-explainer` **in parallel**. Pass each:
 - The docs folder path (`{docs_folder}`)
 - `phase: N`
 
-The agent writes `{docs_folder}/walkthroughs/phase-N.md`. Wait for completion.
+`walkthrough-author` writes `{docs_folder}/walkthroughs/phase-N.md` — the commit-by-commit markdown narration.
+
+`walkthrough-explainer` writes `{docs_folder}/walkthroughs/phase-N.html` — the per-phase HTML walkthrough with one rich page per atomic commit (intent header, scope check, per-commit diagram, risk badge, edge-case prompts, error-handling and test-quality counts, cumulative-context aside, decision buttons) plus a final cross-commit synthesis page. The two outputs are complementary: the markdown is the canonical narration, the HTML is the higher-fidelity review surface.
+
+Wait for both to complete.
 
 ### Step 6: Mark the phase validated
 
@@ -299,7 +303,18 @@ Update the phase entry in `stack.json`:
 }
 ```
 
-Continue to the next phase. After all phases complete, proceed to Phase 7.
+Continue to the next phase. After all phases complete, open the first phase's HTML walkthrough in the user's default browser so they have an entry point into the reviewer surface. Use the Bash tool with a cross-platform shim — best-effort, do not block on failure:
+
+```bash
+WALK="{docs_folder}/walkthroughs/phase-1.html"
+case "$(uname -s)" in
+  Darwin)               open "$WALK" >/dev/null 2>&1 || true ;;
+  Linux)                xdg-open "$WALK" >/dev/null 2>&1 & disown ;;
+  CYGWIN*|MINGW*|MSYS*) start "" "$WALK" >/dev/null 2>&1 || true ;;
+esac
+```
+
+The Tauri walkthrough viewer (if installed) will also surface every phase's HTML walkthrough via its artifact watcher. Then proceed to Phase 7.
 
 ---
 
@@ -353,9 +368,10 @@ A grouped summary of all files created or modified across all phases. Group by a
 - Manual: [pass/fail, any issues worth noting] — `verification/manual-test-report.md`
 
 **### Reviewing this work**
-List each phase's walkthrough with a one-line summary, in order:
-- [Phase 1 — Foundation](./walkthroughs/phase-1.md): [one-line summary of what's in it]
-- [Phase 2 — ...](./walkthroughs/phase-2.md): [...]
+List each phase's walkthrough with a one-line summary, in order. Link both formats — the HTML walkthrough is the richer review surface (per-commit pages with diagrams, scope-check flags, risk badges, decision buttons, and a cross-commit synthesis page); the markdown walkthrough is the canonical narration:
+
+- Phase 1 — Foundation: [HTML](./walkthroughs/phase-1.html) · [markdown](./walkthroughs/phase-1.md) — [one-line summary of what's in it]
+- Phase 2 — …: [HTML](./walkthroughs/phase-2.html) · [markdown](./walkthroughs/phase-2.md) — [...]
 
 Tell the user the walkthroughs are the entry point for review: each one narrates the phase's atomic commits with "what to look for" guidance, and trouble-spot stops flag commits where the engineer needed a fix-up. The single PR for this feature can be reviewed phase-by-phase using these walkthroughs alongside the diffs.
 

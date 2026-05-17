@@ -32,6 +32,7 @@ generalizes best:
 | `02-user-journey.html` | `~/projects/web-app/.orchestrate/custom-prompt-space-guide` | Linear journey map with click-to-expand step cards |
 | `03-system-dashboard.html` | `~/projects/web-app/.orchestrate/level-up-onboarding` | Multi-section dashboard for larger features |
 | `04-implementation-plan.html` | `~/projects/web-app/.orchestrate/fly-266` | **Technical review & sign-off artifact** — end-state diagrams, decisions + rejected alternatives, phased path, key contract code, file plan, interactive sign-off checklist |
+| `07-walkthrough.html` | Demo content modeled on `fly-266` phase 2 | **Per-phase post-implementation walkthrough** — one rich page per atomic commit (intent header, scope check, per-commit diagram, risk badge, edge-case prompts, error-handling and test-quality counts, duplication check, uncertainty, cumulative-context aside, approve/request-changes buttons with localStorage state, chronological vs. execution-order toggle) plus a final cross-commit synthesis page auditing dead code, contradictions, scaffolding, test value, and net file footprint. Reference fixture for the `walkthrough-explainer` agent. |
 
 ### `04-implementation-plan.html` — the sign-off artifact
 
