@@ -71,19 +71,7 @@ skills/generate-brief/                    Public brief-generation skill
 skills/orchestrate/                       Public SDLC orchestration skill
   references/roles/                       Internal specialist prompts
   references/html/                        Active HTML reference fixtures
-scripts/validate.py                       Dependency-free repository validator
-AGENTS.md                                 Contributor guidance
 ```
-
-## Develop and validate
-
-Run the repository validator:
-
-```shell
-python scripts/validate.py
-```
-
-Also validate the plugin and each public skill with the current Codex plugin/skill creator validators before releasing. Version tags create source-only GitHub releases; there are no generated plugin archives or application binaries.
 
 ## License
 

@@ -29,8 +29,8 @@
     ],
     "websiteURL": "https://github.com/zolem/codex-sdlc",
     "defaultPrompt": [
-      "Run the full SDLC pipeline for this feature brief.",
-      "Help me turn this product idea into a structured brief."
+      "Use $orchestrate to run the full SDLC pipeline for this feature brief.",
+      "Use $generate-brief to turn this product idea into a structured brief."
     ]
   }
 }

@@ -2,3 +2,6 @@ interface:
   display_name: "Generate Product Brief"
   short_description: "Turn a product idea into an actionable brief"
   default_prompt: "Use $generate-brief to turn my product idea into a structured implementation brief."
+
+policy:
+  allow_implicit_invocation: false
