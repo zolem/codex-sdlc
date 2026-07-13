@@ -18,10 +18,10 @@ Triggered when given a docs folder with `requirements.md`, `architecture.md`, an
 2. **Identify foundational work** — shared infrastructure that feature work depends on (database schema, shared services, configuration, routing scaffolds, auth setup, test framework installation and configuration, etc.). This becomes Phase 1.
 3. **Include test infrastructure in Foundation** — Read the Testing Strategy section from `architecture.md`. The Foundation phase must include setup of all specified test frameworks, config files, and test runner commands. If the architect specifies config files like `vitest.config.ts` or `playwright.config.ts`, those are created in Phase 1 so all subsequent phases can write and run tests immediately. Include at least one smoke test per framework to confirm the test infrastructure works.
 4. **Group remaining work into cohesive phases** — each phase should deliver a meaningful vertical slice or system area. A phase might be "Core API endpoints", "User authentication flow", "Frontend data layer", etc. Avoid phases so small they're trivial or so large they're overwhelming. Aim for phases an engineer can complete in one focused session. **Each phase must include its own accessibility, error handling, and cross-browser concerns inline** — these are part of building the feature correctly, not a separate "polish" pass. Do not create standalone phases for accessibility, polish, or cross-browser testing.
-5. **Size work items as atomic commits.** Each work item within a phase must be implementable as a single buildable, lintable commit. The engineer will commit once per work item and gate on typecheck + lint at every commit, so coarse work items destroy review granularity. Split combined units: schema, implementation, and tests for a feature should be separate work items in dependency order. Aim for **3-10 work items per phase**. Order them so each can be implemented and committed before the next begins, with no commit ever leaving the tree in a non-buildable state.
-6. **Assign a kebab-case slug to every work item.** The engineer uses this slug as the `Work-Item:` trailer on its commit and downstream tooling (walkthrough-author) keys off it. Slugs must be unique within a phase.
+5. **Size work items as atomic commits.** Each work item within a phase must be implementable as a single buildable, lintable commit. The engineer will commit once per work item and gate on typecheck + lint at every commit, so coarse work items destroy review granularity. Include each work item's assigned tests in that same commit whenever practical. When a test genuinely must be separate, add an explicit `test` work item immediately after the implementation it protects. Aim for **3-10 work items per phase**, including any test-only work items. Order them so each can be implemented and committed before the next begins, with no commit ever leaving the tree in a non-buildable state.
+6. **Assign metadata to every work item.** Give every work item a unique kebab-case **Slug**, a **Kind** of `implementation` or `test`, and a **Tests** list containing its assigned TC-NNN IDs or `None`. The engineer records the slug, kind, and assigned test IDs in commit metadata, and downstream tooling keys off the slug. A `test` work item may change test files and test support only; do not use it to defer unfinished implementation.
 7. **Resolve dependencies** — phases must be strictly ordered so each phase can build cleanly on completed prior work with no in-flight conflicts.
-8. **Assign QA test cases to phases** — read every TC-NNN from `{docs_folder}/test-plan.md` and attach each one to the single phase that delivers the user-facing behavior it protects. A test case belongs on the earliest phase where its behavior is actually built (not before, or the engineer cannot write it; not after, or regressions slip in). Every TC-NNN in the test plan must land on exactly one phase by the end of planning. The QA test cases are user-perspective only and do not specify a test level — that is the engineer's call.
+8. **Assign QA test cases to phases and work items** — read every TC-NNN from `{docs_folder}/test-plan.md` and attach each one to the single phase and work item that delivers the user-facing behavior it protects. A test case belongs on the earliest phase where its behavior is actually built (not before, or the engineer cannot write it; not after, or regressions slip in). Prefer the owning implementation work item; use an explicit `test` work item only when a separate test-only commit is necessary. Every TC-NNN in the test plan must appear exactly once in work-item metadata and in the phase's test assignment table. The QA test cases are user-perspective only and do not specify a test level — that is the engineer's call.
 9. **Never instruct the engineer to write E2E tests.** Only unit tests and UI tests are permitted in this pipeline. Do not list E2E tests in any phase.
 10. **Write individual phase files** to `{docs_folder}/phases/phase-N.md`
 11. **Write the phase index** to `{docs_folder}/task-index.md`
@@ -62,15 +62,19 @@ Each `phase-N.md` must follow this structure:
 
 ### [Work Item Title]
 **Slug:** kebab-case-slug
+**Kind:** implementation
+**Tests:** TC-NNN, TC-NNN | None
 
 [Description of this specific piece of work within the phase — what it is, what it does, any key decisions or constraints from the architecture plan.]
 
-### [Work Item Title]
-**Slug:** another-slug
+### [Optional Test-Only Work Item Title]
+**Slug:** test-kebab-case-slug
+**Kind:** test
+**Tests:** TC-NNN
 
-[Description]
+[Describe the test-only scope and name the implementation work item it protects. Omit this work item when the tests fit in their owning implementation commit.]
 
-[One section per atomic work item. Each becomes a single commit during implementation. Order them so each can be implemented and committed before the next begins, with no commit leaving the tree in a non-buildable state.]
+[One section per atomic work item. Each becomes a single commit during implementation. `Kind` defaults to `implementation` only for backward compatibility with older plans; new plans must always include it. Order work items so each can be implemented and committed before the next begins, with no commit ever leaving the tree in a non-buildable state.]
 
 ## Files
 
@@ -86,15 +90,18 @@ Each `phase-N.md` must follow this structure:
 
 ## Tests to Write
 
-*QA test cases from `test-plan.md` whose user-facing behavior is delivered by this phase. The engineer decides whether each is best implemented as a unit test or a UI test. E2E tests are not permitted.*
+*QA test cases from `test-plan.md` whose user-facing behavior is delivered by this phase. This table is an index of the authoritative work-item assignments above. Each TC-NNN must appear exactly once. The engineer decides whether each is best implemented as a unit test or a UI test. E2E tests are not permitted.*
 
-- [ ] **TC-NNN** — [test case title from the test plan]
-- [ ] **TC-NNN** — [another test case]
+| Test | Work Item | Title |
+|------|-----------|-------|
+| TC-NNN | `kebab-case-slug` | [test case title from the test plan] |
+| TC-NNN | `test-kebab-case-slug` | [another test case] |
 
 ## Done When
 
 - All acceptance criteria above are checked off
 - All listed tests are written and passing
+- Every listed test is assigned to exactly one work-item commit
 - Existing test suite passes with no regressions
 ```
 

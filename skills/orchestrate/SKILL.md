@@ -260,7 +260,7 @@ Spin up one `engineer` subagent in **implementation mode**. Pass:
 Wait for the engineer to respond.
 
 - If the engineer reports **blocked**: mark the phase `failed` in `stack.json`, stop the pipeline, and surface the blocker to the user.
-- If the engineer reports **complete**: proceed to Step 3. The engineer will have made one commit per work item and appended each to `stack.json`.
+- If the engineer reports **complete**: independently inspect tracked changes from the repository root before proceeding. When `{docs_folder}` is inside the repository, convert it to a repo-relative path and run `git diff --name-only -- . ':(exclude)<repo-relative-docs-folder>/**'` plus `git diff --cached --name-only -- . ':(exclude)<repo-relative-docs-folder>/**'`. When it is outside the repository, run the same two commands without pathspecs. Ignore untracked files. If either command returns another tracked path, do not create verification outputs or dispatch verifier agents. Mark the phase `failed` in `stack.json` and surface a blocking report listing the exact paths. Otherwise proceed to Step 3. The engineer will have made one commit per work item, committed every planned test with its owning work item or an explicit test-only work item, recorded the assigned TC-NNN IDs in commit and `stack.json` metadata, and appended each commit to `stack.json`.
 
 ### Step 3: Verify (per-phase)
 
@@ -288,7 +288,7 @@ Spin up one `engineer` subagent in **fix mode**. Pass:
 - The docs folder path (`{docs_folder}`)
 - The failed verification report paths from Step 3
 
-The engineer will append fix-up commits (never amend) and update `stack.json`. When they report complete, return to Step 3.
+The engineer will append fix-up commits (never amend) and update `stack.json`. When they report complete, repeat the tracked-worktree gate from Step 2. Return to Step 3 only when no staged or unstaged tracked implementation or test paths remain outside `{docs_folder}`; otherwise mark the phase failed and surface the exact blocking paths.
 
 ### Step 5: Generate the walkthroughs
 
