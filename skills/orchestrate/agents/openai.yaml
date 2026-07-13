@@ -1,5 +1,5 @@
 interface:
-  display_name: "Orchestrate SDLC"
+  display_name: "z:orchestrate"
   short_description: "Run a review-gated software delivery pipeline"
   default_prompt: "Use $orchestrate to deliver this feature from brief through verified implementation."
 
