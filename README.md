@@ -43,6 +43,8 @@ The brief workflow asks one focused question at a time and writes `docs/<feature
 
 The orchestrator stores run artifacts in `.orchestrate/<feature-slug>/` by default. Set `ORCHESTRATE_OUT_DIR` to an absolute directory to override the artifact root.
 
+Before writing those artifacts, the orchestrator reports the current branch and commit and checks for uncommitted files. A dirty worktree stops the run until the user cleans it and retries or explicitly chooses to continue anyway. The pipeline never stashes, resets, or cleans existing work on the user's behalf.
+
 1. Product requirements
 2. Repository context curation
 3. Architecture and QA planning in parallel
