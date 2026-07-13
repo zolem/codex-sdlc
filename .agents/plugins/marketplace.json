@@ -1,0 +1,20 @@
+{
+  "name": "codex-sdlc",
+  "interface": {
+    "displayName": "Codex SDLC"
+  },
+  "plugins": [
+    {
+      "name": "codex-sdlc",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/zolem/codex-sdlc.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

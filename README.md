@@ -1,151 +1,90 @@
-# cc-sdlc
+# Codex SDLC
 
-A Claude Code / Cursor SDLC pipeline that takes a product brief and fully implements it — requirements, architecture, task planning, implementation, verification, and a handoff summary — with no manual intervention.
-
-## Prerequisites
-
-- **Node.js 18+**
-- **[Claude Code](https://claude.ai/code)** or **[Cursor](https://cursor.com)** installed and authenticated
-- A **git repository** to run the pipeline in
+A Codex-only, review-gated software delivery pipeline. Give it a product brief and it coordinates specialized runtime subagents to produce requirements, architecture, a test plan, phased implementation, independent verification, browser-ready walkthroughs, and a final handoff.
 
 ## Install
 
-Each install also drops the walkthrough desktop app (`orchestrate-walkthrough`) onto your `$PATH` so the orchestrate skill can auto-launch it. Skip it with `SKIP_APP=1`.
+Requirements:
 
-### Cursor
+- A current Codex release with plugin and subagent support
+- Git available in the repositories where the pipeline will run
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | bash
+Add this repository as a plugin marketplace:
+
+```shell
+codex plugin marketplace add zolem/codex-sdlc
 ```
 
-Installs the cc-sdlc Cursor plugin into `~/.cursor/plugins/local/cc-sdlc/` and the walkthrough app. Restart Cursor afterward.
+Open the plugin directory in the Codex app, choose the **Codex SDLC** marketplace, and install **codex-sdlc**. Start a new task after installing or upgrading so the current plugin contents are loaded.
 
-### Claude Code
+## Use
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | MODE=claude bash
+Run the full pipeline with an inline brief:
+
+```text
+$orchestrate Build a URL shortener where users paste a long URL and receive a durable short link.
 ```
 
-Installs the walkthrough app, then prints next steps. Inside Claude Code:
+Or pass a brief file:
 
-```
-/plugin marketplace add zolem/cc-sdlc
-/plugin install cc-sdlc@cc-sdlc
-```
-
-### Options
-
-```bash
-# Pin a version
-curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | VERSION=v1.1.0 bash
-
-# Skip the desktop app
-curl -fsSL https://raw.githubusercontent.com/zolem/cc-sdlc/main/install.sh | SKIP_APP=1 bash
-
-# Install from your fork
-curl -fsSL .../install.sh | REPO=my-org/cc-sdlc bash
+```text
+$orchestrate Use docs/url-shortener-brief.md as the product brief.
 ```
 
-## Usage
+If the idea needs clarification first:
 
-Open Claude Code or Cursor in any repository and run:
-
-```
-/orchestrate <your product brief>
+```text
+$generate-brief task management app
 ```
 
-**Example:**
+The brief workflow asks one focused question at a time and writes `docs/<feature-slug>-brief.md`.
 
-```
-/orchestrate Build a URL shortener where users paste a long URL and get a short
-link. Clicking the short link redirects to the original. Track click counts.
-No user accounts required.
-```
+## Pipeline
 
-The pipeline runs fully automated from there.
+The orchestrator stores run artifacts in `.orchestrate/<feature-slug>/` by default. Set `ORCHESTRATE_OUT_DIR` to an absolute directory to override the artifact root.
 
-### Generating a brief interactively
+1. Product requirements
+2. Repository context curation
+3. Architecture and QA planning in parallel
+4. Phased task planning
+5. Self-contained HTML planning brief and user approval gate
+6. Sequential phase implementation with atomic commits
+7. Per-phase QA, code review, and security review in parallel, with bounded remediation
+8. Markdown and self-contained HTML walkthroughs
+9. Final browser QA when browser control is available
+10. Summary and handoff
 
-If you're not sure what to put in the brief, use `/generate-brief` first. It walks you through a short Q&A and produces a structured brief you can then pass to `/orchestrate`.
+The 14 specialist role prompts are internal to the orchestrator. Each runtime subagent reads only its assigned role and bounded task inputs, keeping planning, implementation, and review context isolated.
 
-```
-/generate-brief task management app
-```
+## Browser review and QA
 
-## What it does
+Planning briefs and phase walkthroughs are standalone HTML files. The orchestrator best-effort opens them in the operating system's default browser and always reports their absolute paths.
 
-```
-Phase 1  Requirements      Product brief → user stories, personas, acceptance criteria
-Phase 2  Context           Requirements + repo docs/code → focused context briefing
-Phase 3  Architecture      Requirements + context → implementation plan + test cases (parallel)
-Phase 4  Planning          All docs → ordered phase files with atomic work items
-Phase 5  Implementation    Per phase: engineer (atomic commits) → qa + code review + security in parallel → up to 3 in-place fix iterations → walkthrough
-Phase 6  Integration       Manual browser test of the fully integrated feature
-Phase 7  Handoff           Summary with per-phase walkthroughs as the review entry point
-```
+Final manual QA uses browser control when the active Codex client exposes it. If browser control is unavailable, the run finishes with `SKIPPED_UNAVAILABLE`, clearly warns that end-to-end browser validation remains outstanding, and writes exact owner test steps. Skipped cases are never reported as passing.
 
-### Agents
+## Repository layout
 
-| Agent                 | Role                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `product-manager`     | Transforms a brief into a structured requirements doc with user stories and acceptance criteria                   |
-| `context-curator`     | Curates a focused, scope-aware briefing from the repo's docs and code so downstream agents stay narrow            |
-| `architect`           | Combines requirements + context into an implementation plan with explicit SOLID / pattern decisions               |
-| `qa-analyst`          | Writes a user-perspective test plan — what real users will type, click, and trigger                               |
-| `task-planner`        | Decomposes planning docs into ordered phases of atomic work items, each sized for a single commit                 |
-| `engineer`            | Implements a phase one work item at a time, one commit per work item, gated on typecheck + lint                   |
-| `code-reviewer`       | Senior review against the architecture: SOLID, composition, design patterns, correctness                          |
-| `qa-verifier`         | Runs the test suite and checks every test case from the plan is implemented                                       |
-| `security-reviewer`   | Reviews changed code for OWASP Top 10 and common vulnerabilities                                                  |
-| `manual-tester`       | Starts the app and walks through user stories in a real browser _(optional, requires Claude in Chrome extension)_ |
-| `walkthrough-author`  | Generates a per-phase code-review walkthrough that narrates each commit's intent and flags trouble spots          |
-| `merge-resolver`      | Resolves git merge conflicts by understanding the intent of both conflicting tasks                                |
-
-### Output
-
-All pipeline artifacts are written to `.orchestrate/{feature-slug}/` at the repo root by default. Override with the `ORCHESTRATE_OUT_DIR` environment variable.
-
-```
-.orchestrate/{feature-slug}/
-  requirements.md       — user stories and acceptance criteria
-  context.md            — curated context briefing for downstream agents
-  architecture.md       — implementation plan and component design
-  test-plan.md          — user-perspective test cases
-  task-index.md         — ordered phase list with dependency summary
-  stack.json            — per-phase status, commits, and verification metadata
-  phases/
-    phase-1.md          — cohesive phase specs for engineer agents
-    phase-2.md
-    ...
-  verification/
-    phase-N/
-      qa-report.md           — per-phase test suite results and coverage
-      code-review-report.md  — per-phase senior code review
-      security-report.md     — per-phase security findings
-    manual-test-report.md    — end-of-pipeline browser walkthrough (if Chrome extension enabled)
-  walkthroughs/
-    phase-1.md          — narrated per-commit review guide for the phase
-    phase-2.md
-    ...
+```text
+.codex-plugin/plugin.json                 Plugin manifest
+.agents/plugins/marketplace.json          Repository marketplace
+skills/generate-brief/                    Public brief-generation skill
+skills/orchestrate/                       Public SDLC orchestration skill
+  references/roles/                       Internal specialist prompts
+  references/html/                        Active HTML reference fixtures
+scripts/validate.py                       Dependency-free repository validator
+AGENTS.md                                 Contributor guidance
 ```
 
-### Optional: walkthrough viewer
+## Develop and validate
 
-`app/` contains an optional Tauri desktop app for browsing per-phase walkthroughs as the pipeline runs. Build it with `cd app && npm install && npm run tauri build`. If `orchestrate-walkthrough` ends up on `$PATH`, the orchestrate skill will auto-launch it at the start of each run. See `app/README.md`.
+Run the repository validator:
 
-## Optional: Browser Testing
-
-The `manual-tester` agent walks through user stories in a real browser using Claude's built-in Chrome integration. To enable it:
-
-1. Install the **[Claude in Chrome extension](https://chromewebstore.google.com/detail/claude-in-chrome)** in Chrome or Edge (v1.0.36+)
-2. Launch Claude Code with Chrome integration enabled: `claude --chrome`
-
-The pipeline works without this — the `manual-tester` is skipped if the extension is not available. All other verification (QA, security) runs regardless.
-
-## Contributing
-
-Source files live in `src/` — edit agents in `src/agents/` and skills in `src/skills/`. Each source file uses combined frontmatter with `claude:` and `cursor:` subsections for tool-specific fields. After editing, run the build to regenerate the `.claude/` and `.cursor/` output directories:
-
-```bash
-npm run build
+```shell
+python scripts/validate.py
 ```
+
+Also validate the plugin and each public skill with the current Codex plugin/skill creator validators before releasing. Version tags create source-only GitHub releases; there are no generated plugin archives or application binaries.
+
+## License
+
+[MIT](LICENSE)

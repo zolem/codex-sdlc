@@ -1,9 +1,0 @@
-{
-  "identifier": "default",
-  "description": "Default capabilities for the walkthrough app",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "cli:default"
-  ]
-}

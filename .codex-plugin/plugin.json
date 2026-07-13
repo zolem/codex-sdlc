@@ -1,0 +1,36 @@
+{
+  "name": "codex-sdlc",
+  "version": "1.0.0",
+  "description": "A review-gated software delivery pipeline for Codex with specialized planning, implementation, verification, and walkthrough subagents.",
+  "author": {
+    "name": "zolem",
+    "url": "https://github.com/zolem"
+  },
+  "homepage": "https://github.com/zolem/codex-sdlc",
+  "repository": "https://github.com/zolem/codex-sdlc",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "sdlc",
+    "software-delivery",
+    "subagents",
+    "code-review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex SDLC",
+    "shortDescription": "Plan, implement, verify, and review changes",
+    "longDescription": "Turn a product brief into requirements, architecture, phased implementation, independent verification, browser-ready walkthroughs, and a final engineering handoff using Codex runtime subagents.",
+    "developerName": "zolem",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/zolem/codex-sdlc",
+    "defaultPrompt": [
+      "Run the full SDLC pipeline for this feature brief.",
+      "Help me turn this product idea into a structured brief."
+    ]
+  }
+}
