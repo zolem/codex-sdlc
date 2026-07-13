@@ -54,6 +54,26 @@ Resolve the repository root with `git rev-parse --show-toplevel`; fall back to t
 
 The default location is `.orchestrate/` at the repo root. Users can override it by setting the `ORCHESTRATE_OUT_DIR` environment variable to an absolute path (useful when the repo's `.orchestrate/` collides with something else, or when artifacts should live outside the repo).
 
+### Git startup check
+
+Before creating the artifact folder or making any other filesystem mutation, report the current branch and HEAD, then check for uncommitted files from the repository root:
+
+```bash
+git branch --show-current
+git rev-parse --short HEAD
+git status --porcelain=v1 --untracked-files=all
+```
+
+An empty branch name means `HEAD` is detached. If the status output is empty, tell the user which branch and commit the run is starting from and continue.
+
+If the status output is non-empty, stop before writing artifacts. Show the current branch, HEAD, and the status output, then send this concise gate:
+
+> I found uncommitted files, so I can't safely start the orchestration run yet. Please commit, stash, or revert them and reply `retry`. If you intentionally want to run on top of these changes, reply `continue anyway`.
+
+Wait for the user's response. On `retry`, rerun the startup check and continue only when it is clean. On an explicit `continue anyway`, warn that the existing changes may overlap with or be included in implementation commits, then continue. Do not treat a generic planning approval as permission to bypass this gate. Never stash, reset, clean, or otherwise alter the existing changes on the user's behalf.
+
+If the current directory is not a Git worktree, preserve the existing non-Git fallback behavior.
+
 Create the artifact folder for this feature:
 
 ```
