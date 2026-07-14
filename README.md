@@ -41,7 +41,13 @@ The brief workflow asks one focused question at a time and writes `.orchestrate/
 
 ## Pipeline
 
-The orchestrator stores run artifacts in `.orchestrate/<feature-slug>/` by default. Set `ORCHESTRATE_OUT_DIR` to an absolute directory to override the artifact root.
+The orchestrator stores each run in its own collision-safe directory under `.orchestrate/<feature-slug>/<run-id>/` by default. Run IDs use a high-resolution UTC timestamp, and the run directory is created without overwriting an existing path, so repeating the same feature slug preserves earlier artifacts. For example:
+
+```text
+.orchestrate/url-shortener/run-20260714T042452123456Z/
+```
+
+Set `ORCHESTRATE_OUT_DIR` to an absolute directory to override the artifact root; the `<feature-slug>/<run-id>/` layout is preserved beneath that root.
 
 Before writing those artifacts, the orchestrator reports the current branch and commit and checks for uncommitted files. A dirty worktree stops the run until the user cleans it and retries or explicitly chooses to continue anyway. The pipeline never stashes, resets, or cleans existing work on the user's behalf.
 
