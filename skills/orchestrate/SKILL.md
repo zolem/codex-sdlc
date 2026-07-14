@@ -74,17 +74,25 @@ Wait for the user's response. On `retry`, rerun the startup check and continue o
 
 If the current directory is not a Git worktree, preserve the existing non-Git fallback behavior.
 
-Create the artifact folder for this feature:
+After the Git startup check passes (or the user explicitly chooses `continue anyway`), allocate this run's artifact directory:
+
+1. Read the current UTC time with the active shell's native clock and format it as a basic ISO 8601 timestamp with six fractional-second digits: `yyyyMMddTHHmmssffffffZ`. This uses only digits plus `T` and `Z` and requires no external runtime or package.
+2. Set `{run_id}` to `run-<UTC timestamp>`, for example `run-20260714T042452123456Z`.
+3. Validate `{run_id}` against `^run-[0-9]{8}T[0-9]{12}Z$`. If a valid timestamp cannot be produced, stop before creating artifact directories and report the blocker.
+4. Resolve `{docs_folder}` to the absolute path `{ARTIFACT_ROOT}/{feature-slug}/{run_id}`. Keep `{run_id}` and `{docs_folder}` unchanged for the lifetime of this run.
+5. Ensure `{ARTIFACT_ROOT}` and its `{feature-slug}` container exist, then create `{docs_folder}` with an exclusive, non-overwriting directory operation. If that exact run directory already exists, sample a fresh timestamp, rebuild and revalidate `{run_id}`, and retry up to three times. Do not reuse, merge into, or delete an existing run directory. Treat permission and parent-path failures as blockers, not collisions.
+
+Create the child artifact directories inside the newly allocated run directory:
 
 ```
-{ARTIFACT_ROOT}/{feature-slug}/
-{ARTIFACT_ROOT}/{feature-slug}/phases/
-{ARTIFACT_ROOT}/{feature-slug}/walkthroughs/
-{ARTIFACT_ROOT}/{feature-slug}/verification/
-{ARTIFACT_ROOT}/{feature-slug}/revisions/
+{ARTIFACT_ROOT}/{feature-slug}/{run_id}/
+{ARTIFACT_ROOT}/{feature-slug}/{run_id}/phases/
+{ARTIFACT_ROOT}/{feature-slug}/{run_id}/walkthroughs/
+{ARTIFACT_ROOT}/{feature-slug}/{run_id}/verification/
+{ARTIFACT_ROOT}/{feature-slug}/{run_id}/revisions/
 ```
 
-Create these directories with the available filesystem or shell tools. All agents will read from and write to this folder. Refer to the resolved per-feature path as `{docs_folder}` throughout (e.g. `.orchestrate/url-shortener`).
+Create these child directories with the available filesystem or shell tools. All agents read from and write to the same run directory. Whenever this workflow dispatches a role, pass the exact absolute `{docs_folder}` value; neither the orchestrator nor a role may reconstruct it from the feature slug later. For example, a default run path is `.orchestrate/url-shortener/run-20260714T042452123456Z`.
 
 Initialize `{docs_folder}/stack.json` as an empty stub:
 
