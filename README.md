@@ -28,7 +28,7 @@ $orchestrate Build a URL shortener where users paste a long URL and receive a du
 Or pass a brief file:
 
 ```text
-$orchestrate Use docs/url-shortener-brief.md as the product brief.
+$orchestrate Use .orchestrate/url-shortener/product-brief.md as the product brief.
 ```
 
 If the idea needs clarification first:
@@ -37,7 +37,7 @@ If the idea needs clarification first:
 $generate-brief task management app
 ```
 
-The brief workflow asks one focused question at a time and writes `docs/<feature-slug>-brief.md`.
+The brief workflow asks one focused question at a time and writes `.orchestrate/<feature-slug>/product-brief.md` by default. Like the orchestrator, it honors an absolute `ORCHESTRATE_OUT_DIR` override.
 
 ## Pipeline
 

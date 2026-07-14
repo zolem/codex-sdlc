@@ -43,10 +43,11 @@ Once you have answers to all questions, generate the brief and write it to a fil
 
 ### File location
 
-- If a `docs/` directory exists in the current working directory, write to `docs/{feature-slug}-brief.md`
-- If not, create `docs/` first, then write to `docs/{feature-slug}-brief.md`
-
 Derive `{feature-slug}` from the product/feature name (kebab-case, e.g. "url-shortener", "task-management-app").
+
+Resolve the repository root with `git rev-parse --show-toplevel`; fall back to the current working directory when it is not a Git repository. Set the artifact root to `ORCHESTRATE_OUT_DIR` when that environment variable contains an absolute path, otherwise use `<repo-root>/.orchestrate`.
+
+Create the feature artifact directory if needed, then write the brief to `{ARTIFACT_ROOT}/{feature-slug}/product-brief.md` (for example, `.orchestrate/url-shortener/product-brief.md`). This is the same per-feature directory the `$orchestrate` pipeline uses for its remaining artifacts.
 
 ### Brief format
 
