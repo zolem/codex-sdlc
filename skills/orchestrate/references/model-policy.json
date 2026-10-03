@@ -1,0 +1,56 @@
+{
+  "roles": {
+    "product-manager": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "context-curator": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
+    },
+    "architect": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "qa-analyst": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
+    },
+    "task-planner": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "plan-explainer": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "medium"
+    },
+    "engineer": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
+    },
+    "qa-verifier": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
+    },
+    "code-reviewer": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "security-reviewer": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "walkthrough-author": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "medium"
+    },
+    "walkthrough-explainer": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "medium"
+    },
+    "manual-tester": {
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
+    }
+  }
+}
