@@ -11,15 +11,32 @@ You are the SDLC pipeline orchestrator. You hold all artifacts, coordinate agent
 
 ## Role dispatch
 
-Specialist instructions are bundled under `references/roles/` relative to this `SKILL.md`. Whenever this workflow says to spin up a named subagent:
+Specialist instructions are bundled under `references/roles/` relative to this `SKILL.md`. Every dispatch in Phases 1–7 uses this contract, including planning revisions, engineer fixes, repeated verification, walkthroughs, and manual-test remediation/retries:
 
-1. Resolve `references/roles/<role-name>.md` to an absolute path.
-2. Spawn a runtime subagent with a bounded task. Tell it to read that role file completely, then perform the supplied task using only the task inputs and repository state.
-3. Give each subagent a stable task name matching the role and phase, and require a concise completion summary plus the expected artifact path.
-4. Wait for required results before continuing. Spawn agents in parallel only where this workflow explicitly says the work is independent.
-5. If a subagent reports a git conflict it cannot safely resolve, spawn `merge-resolver` with the conflicting files and both relevant task specifications. Re-run the interrupted gate after resolution.
+1. Resolve `references/roles/<role-name>.md` to an absolute path and look up the role in the setup-time `{resolved_model_policy}.roles` snapshot. A missing entry is a blocker.
+2. Spawn a **generic runtime agent** (`agent_type: "default"` where supported), never a named `orchestrate_*` custom agent. Explicitly pass `model` and `reasoning_effort` from that role's resolved entry to **every** spawn. Do not rely on parent inheritance or runtime defaults. Native custom-agent files can pin settings that override explicit spawn choices; do not install or select them for this workflow.
+3. Request fresh context (`fork_turns: "none"` where supported). Supply a bounded task containing the absolute role-file path, target repository root, exact `{docs_folder}`, the inputs listed at that dispatch site, applicable steering/report paths, and expected output. Tell the agent to read its role file completely, then perform that task using the supplied inputs and repository state. Do not copy the whole parent conversation. If the runtime lacks fresh-context controls, disclose inherited-context limitations before dispatch; bounded inputs do not guarantee context isolation.
+4. Give each dispatch a unique task name matching the role and phase/revision/attempt (use underscores if required by the runtime). Require a concise completion summary plus the expected artifact path. Record the requested settings and outcome as described in Setup.
+5. Wait for required results before continuing. Spawn agents in parallel only where this workflow explicitly says the work is independent. Implementation remains sequential. If a subagent reports a Git conflict it cannot safely resolve, stop and surface the conflicting paths and blocker.
 
-Do not paste full role prompts into the parent conversation. Let each subagent read its own role file so intermediate context stays isolated.
+For example, an engineer dispatch maps to these spawn arguments (substitute resolved values, not these placeholders):
+
+```json
+{
+  "task_name": "engineer_phase_1",
+  "agent_type": "default",
+  "fork_turns": "none",
+  "model": "<resolved_model_policy.roles.engineer.model>",
+  "reasoning_effort": "<resolved_model_policy.roles.engineer.reasoning_effort>",
+  "message": "Read <absolute role file> completely. Implement <absolute phase file> in <target repository root>; docs_folder is <absolute run directory>. Return completion status and artifact path."
+}
+```
+
+Inspect the active spawn tool schema at setup. If it cannot accept explicit model and reasoning settings, or a requested model/effort is unsupported or unavailable, fail clearly with the role, requested settings, and runtime error. Never silently substitute, omit settings, or automatically escalate to another model. Validate compatibility using runtime capability information when exposed; otherwise the spawn response is the availability check. Model identifiers are configurable strings, not a universal allowlist derived from one session. If a generic agent is known to have native pinned settings, stop rather than claim the policy was applied.
+
+This is instruction-driven dispatch, not hard runtime enforcement. Role files and bounded inputs guide behavior; they do not restrict tools, repository access, or inherited system instructions. The run records requested settings, not actual-model telemetry unless the runtime independently exposes it.
+
+Do not paste full role prompts into the parent conversation. Let each subagent read its own role file to keep the parent's intermediate context small.
 
 Role files:
 
@@ -36,7 +53,6 @@ Role files:
 - [walkthrough-author](references/roles/walkthrough-author.md)
 - [walkthrough-explainer](references/roles/walkthrough-explainer.md)
 - [manual-tester](references/roles/manual-tester.md)
-- [merge-resolver](references/roles/merge-resolver.md)
 
 HTML reference fixtures used by the explainer roles:
 
@@ -53,6 +69,20 @@ Derive a short kebab-case feature slug from the product brief (e.g. "url-shorten
 Resolve the repository root with `git rev-parse --show-toplevel`; fall back to the current working directory when it is not a Git repository. Set the artifact root to `ORCHESTRATE_OUT_DIR` when that environment variable contains an absolute path, otherwise use `<repo-root>/.orchestrate`.
 
 The default location is `.orchestrate/` at the repo root. Users can override it by setting the `ORCHESTRATE_OUT_DIR` environment variable to an absolute path (useful when the repo's `.orchestrate/` collides with something else, or when artifacts should live outside the repo).
+
+### Resolve the model policy once
+
+Before allocating artifacts or dispatching agents, read bundled `references/model-policy.json` relative to the absolute location of **this SKILL.md**, not the working directory or target repository. Read the optional `<target-repository-root>/.orchestrate/model-policy.json` once. This override path is fixed at the target repository root even when `ORCHESTRATE_OUT_DIR` points elsewhere; never load a policy from `{docs_folder}` or the artifact root. Only a missing optional file means "no overrides"; unreadable files or invalid JSON are blockers.
+
+These JSON files are project conventions for this skill, not native Codex configuration. On validation failure, stop with the source path and offending role/field or JSON parse error. Resolve and validate them as follows:
+
+- Both files must be JSON objects containing only a `roles` object. Reject duplicate keys at any level, malformed JSON, unknown top-level keys, and unknown role names. The recognized roles are exactly the 13 role files listed above.
+- Each role value must be an object containing only `model` and/or `reasoning_effort`. Reject unknown fields, nulls, arrays, and wrong types. Supplied values must be nonempty strings with no leading/trailing whitespace. `reasoning_effort` must be one of `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`; runtime/model compatibility is a separate check. Do not constrain model strings to the models visible in this session.
+- The bundled policy must include all 13 roles with both fields. The optional policy may contain a subset of roles and fields; `{"roles": {}}` and empty role objects are valid no-ops.
+- For each role in bundled order, copy its bundled fields and replace **only** fields explicitly present for that role in the optional policy. Never replace the whole role entry when only one field is overridden. No other source (environment variables, run artifacts, parent settings) participates in the merge.
+- Validate the complete result again: exactly 13 roles, both valid fields per role, and compatibility with any capabilities exposed by the active spawn tool. Freeze this `{resolved_model_policy}` snapshot for the run, including all revision/fix loops. Changes to policy files take effect on the next run.
+
+Before Phase 1, show a compact summary grouped by identical requested `model` / `reasoning_effort`, listing every role and whether project overrides were loaded. For example, the bundled summary has three groups: Sol/high (5 roles), Luna/high (5 roles), and Luna/medium (3 roles). Use the actual resolved strings in the summary, and report policy source paths.
 
 ### Git startup check
 
@@ -94,16 +124,26 @@ Create the child artifact directories inside the newly allocated run directory:
 
 Create these child directories with the available filesystem or shell tools. All agents read from and write to the same run directory. Whenever this workflow dispatches a role, pass the exact absolute `{docs_folder}` value; neither the orchestrator nor a role may reconstruct it from the feature slug later. For example, a default run path is `.orchestrate/url-shortener/run-20260714T042452123456Z`.
 
-Initialize `{docs_folder}/stack.json` as an empty stub:
+Initialize `{docs_folder}/stack.json` with the resolved policy snapshot (populate `model_policy.roles` below with the full resolved `roles` object):
 
 ```json
 {
   "feature_slug": "<feature-slug>",
+  "model_policy": {
+    "bundled_path": "<absolute skill directory>/references/model-policy.json",
+    "project_path": "<target-repository-root>/.orchestrate/model-policy.json",
+    "project_override_loaded": false,
+    "roles": {}
+  },
   "phases": []
 }
 ```
 
-The engineer appends commit entries to this file as it works; the orchestrator updates each phase's `status`, `started_at`, `completed_at`, and `verification` block as the per-phase loop progresses.
+Replace `project_override_loaded` with the actual boolean. Tell every role that edits `stack.json` to preserve `model_policy` and all unrelated fields.
+
+Initialize `{docs_folder}/model-dispatches.json` as `[]`. The orchestrator exclusively owns this log; serialize its writes. Before each spawn, append an entry with `task_name`, `role`, `phase` (number or null), `mode` (e.g. initial, revision, implementation, fix, verification, walkthrough), `revision` (number or null), `attempt` (1-based per role/phase/mode/revision), `model`, `reasoning_effort`, and `status: "requested"`. After the tool responds, update that entry with `agent_id` when returned and `status: "spawned"`, or `status: "failed"` with the exact error. Repeated verification increments its attempt; a new planning revision starts at attempt 1 with its revision number. Failed dispatches stop the pipeline; failures before artifact allocation are reported directly. The log describes requested settings and spawn outcomes, not task completion or actual-model telemetry. Keeping it separate from `stack.json` avoids competing with engineer commit-metadata writes.
+
+The engineer appends commit entries to `stack.json` as it works; the orchestrator updates each phase's `status`, `started_at`, `completed_at`, and `verification` block as the per-phase loop progresses.
 
 ---
 
@@ -293,6 +333,7 @@ Read each report and check the **Result** line.
 ### Step 4: Fix in place
 
 Spin up one `engineer` subagent in **fix mode**. Pass:
+- `phase: N` and the phase file path (`{docs_folder}/phases/phase-N.md`)
 - The docs folder path (`{docs_folder}`)
 - The failed verification report paths from Step 3
 
